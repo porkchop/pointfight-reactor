@@ -180,6 +180,31 @@ describe('useSession store', () => {
     expect(useSession.getState().reps.at(-1)?.roundIndex).toBe(1)
   })
 
+  it('stamps a distance on the rep when distance axis is enabled', () => {
+    useSession.getState().start(
+      { distanceAxisEnabled: true, maxReps: 1 },
+      mulberry32(20),
+    )
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 80)
+    const rep = useSession.getState().reps.at(-1)
+    expect(rep?.distance).toBeDefined()
+    expect(['far', 'mid', 'in_range']).toContain(rep?.distance)
+  })
+
+  it('omits distance when distance axis is disabled', () => {
+    useSession.getState().start(
+      { goCueProbability: 1, maxReps: 1 },
+      mulberry32(21),
+    )
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 80)
+    const rep = useSession.getState().reps.at(-1)
+    expect(rep?.distance).toBeUndefined()
+  })
+
   it('clearPenalty increments cleared and persists', async () => {
     useSession.getState().start({}, mulberry32(13))
     expect(useSession.getState().cleared).toBe(0)

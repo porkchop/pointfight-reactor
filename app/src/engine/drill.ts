@@ -1,12 +1,15 @@
-import { GO_CUES, NO_GO_CUES } from '../cues/library'
+import { CUE_LIBRARY, GO_CUES, NO_GO_CUES } from '../cues/library'
 import type {
   CueDef,
+  CueDistanceEntry,
+  Distance,
   DrillConfig,
   RepRecord,
   RepResult,
   SessionSummary,
 } from './types'
 import {
+  DISTANCES,
   PRE_CUE_MAX_CEILING_MS,
   PRE_CUE_MIN_FLOOR_MS,
   SCORE_TABLE,
@@ -18,6 +21,12 @@ export function pickPreCueDelayMs(rng: RNG, config: DrillConfig): number {
 }
 
 export function pickNextCue(rng: RNG, config: DrillConfig): CueDef {
+  if (config.distanceAxisEnabled) {
+    if (CUE_LIBRARY.length === 0) {
+      throw new Error('pickNextCue: empty library')
+    }
+    return CUE_LIBRARY[Math.floor(rng() * CUE_LIBRARY.length)]
+  }
   const isGo = rng() < config.goCueProbability
   const pool = isGo ? GO_CUES : NO_GO_CUES
   if (pool.length === 0) {
@@ -26,8 +35,22 @@ export function pickNextCue(rng: RNG, config: DrillConfig): CueDef {
   return pool[Math.floor(rng() * pool.length)]
 }
 
+export function pickDistance(rng: RNG): Distance {
+  return DISTANCES[Math.floor(rng() * DISTANCES.length)]
+}
+
+export function resolveCueAtDistance(
+  cue: CueDef,
+  distance: Distance | null,
+): CueDistanceEntry {
+  if (distance !== null && cue.byDistance) {
+    return cue.byDistance[distance]
+  }
+  return { isGo: cue.isGo, expectedResponse: cue.expectedResponse }
+}
+
 export interface ClassifyInput {
-  cue: CueDef
+  isGo: boolean
   cueShownAt: number
   pressedAt: number | null
   responseWindowMs: number
@@ -41,7 +64,7 @@ export interface ClassifyOutput {
 }
 
 export function classifyRep(input: ClassifyInput): ClassifyOutput {
-  const { cue, cueShownAt, pressedAt, responseWindowMs, hesitationThresholdMs } =
+  const { isGo, cueShownAt, pressedAt, responseWindowMs, hesitationThresholdMs } =
     input
 
   if (pressedAt !== null && pressedAt < cueShownAt) {
@@ -52,11 +75,11 @@ export function classifyRep(input: ClassifyInput): ClassifyOutput {
     pressedAt !== null && pressedAt - cueShownAt <= responseWindowMs
 
   if (!pressedInWindow) {
-    return wrap(cue.isGo ? 'late' : 'correct_no_go', null)
+    return wrap(isGo ? 'late' : 'correct_no_go', null)
   }
 
-  const dt = (pressedAt as number) - cueShownAt
-  if (!cue.isGo) {
+  const dt = Math.round((pressedAt as number) - cueShownAt)
+  if (!isGo) {
     return wrap('false_start', dt)
   }
 

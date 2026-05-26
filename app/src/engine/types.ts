@@ -16,12 +16,22 @@ export type ResponseId =
   | 'evade_reset'
   | 'do_nothing'
 
+export type Distance = 'far' | 'mid' | 'in_range'
+
+export const DISTANCES: readonly Distance[] = ['far', 'mid', 'in_range']
+
+export interface CueDistanceEntry {
+  isGo: boolean
+  expectedResponse: ResponseId
+}
+
 export interface CueDef {
   id: CueId
   label: string
   description: string
   isGo: boolean
   expectedResponse: ResponseId
+  byDistance?: Record<Distance, CueDistanceEntry>
 }
 
 export type RepResult =
@@ -45,6 +55,7 @@ export interface RepRecord {
   pressedAt: number | null
   roundIndex: number
   inputSource: InputSource
+  distance?: Distance
 }
 
 export interface SessionSummary {
@@ -85,6 +96,9 @@ export interface DrillConfig {
   penaltyCounterEnabled: boolean
   perFalseStartPenalty: number
   perHesitationPenalty: number
+  distanceAxisEnabled: boolean
+  audioToneEnabled: boolean
+  textOverlayEnabled: boolean
 }
 
 export const PRE_CUE_MIN_FLOOR_MS = 500
@@ -103,6 +117,9 @@ export const DEFAULT_DRILL_CONFIG: DrillConfig = {
   penaltyCounterEnabled: false,
   perFalseStartPenalty: 1,
   perHesitationPenalty: 1,
+  distanceAxisEnabled: false,
+  audioToneEnabled: false,
+  textOverlayEnabled: false,
 }
 
 export const SCORE_TABLE: Record<RepResult, number> = {

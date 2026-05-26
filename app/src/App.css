@@ -203,7 +203,7 @@ kbd {
 }
 
 .cue-label {
-  font-size: clamp(5rem, 16vw, 14rem);
+  font-size: clamp(3rem, 9vw, 7rem);
   font-weight: 900;
   letter-spacing: -2px;
   line-height: 0.95;
@@ -215,6 +215,92 @@ kbd {
   color: var(--gym-muted);
   letter-spacing: 4px;
   text-transform: uppercase;
+}
+.cue-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+.cue-pictograph-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 120ms ease-out;
+}
+.cue-pictograph {
+  width: clamp(220px, 38vw, 520px);
+  height: auto;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.45));
+}
+.accent-accent .cue-pictograph { color: var(--gym-accent); }
+.accent-danger .cue-pictograph { color: var(--gym-bad); }
+.accent-warn   .cue-pictograph { color: var(--gym-warn); }
+
+.cue-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cue-distance-label {
+  font-size: 1.2rem;
+  letter-spacing: 6px;
+  color: var(--gym-accent);
+  text-transform: uppercase;
+}
+
+/* ---- Per-cue keyframe animations ---- */
+.anim-step-in       { animation: stepIn 600ms ease-out both; }
+.anim-blitz         { animation: blitz 380ms ease-out both; }
+.anim-leg-lift .cue-leg-lift { animation: legLift 700ms ease-out both; transform-origin: 60px 86px; }
+.anim-hand-drop .cue-arm-drop { animation: armDrop 700ms ease-out both; transform-origin: 60px 50px; }
+.anim-retreat       { animation: retreat 600ms ease-out both; }
+.anim-freeze        { animation: freezeFlash 700ms ease-out both; }
+.anim-fake-step     { animation: fakeStep 700ms ease-in-out both; }
+.anim-bait          { animation: bait 800ms ease-in-out both; }
+
+@keyframes stepIn {
+  0%   { transform: translateX(-20px); opacity: 0.6; }
+  60%  { transform: translateX(8px);   opacity: 1; }
+  100% { transform: translateX(0);     opacity: 1; }
+}
+@keyframes blitz {
+  0%   { transform: translateX(-22px) scale(0.96); opacity: 0.5; }
+  100% { transform: translateX(0)     scale(1);    opacity: 1; }
+}
+@keyframes legLift {
+  0%   { transform: rotate(0); }
+  60%  { transform: rotate(-32deg); }
+  100% { transform: rotate(-28deg); }
+}
+@keyframes armDrop {
+  0%   { transform: rotate(-70deg); }
+  100% { transform: rotate(0); }
+}
+@keyframes retreat {
+  0%   { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-18px); opacity: 0.9; }
+}
+@keyframes freezeFlash {
+  0%   { opacity: 0.4; }
+  20%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+@keyframes fakeStep {
+  0%   { transform: translateX(0); }
+  30%  { transform: translateX(10px); }
+  60%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+@keyframes bait {
+  0%   { opacity: 0.4; transform: scale(0.95); }
+  50%  { opacity: 1;   transform: scale(1.02); }
+  100% { opacity: 1;   transform: scale(1); }
 }
 
 .feedback-label {

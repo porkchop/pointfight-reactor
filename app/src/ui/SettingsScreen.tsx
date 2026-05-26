@@ -195,6 +195,39 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
       </section>
 
       <section className="settings-section">
+        <h2>Visuals</h2>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.distanceAxisEnabled}
+            onChange={(e) =>
+              update('distanceAxisEnabled', e.target.checked)
+            }
+          />
+          <span>
+            Enable distance axis (far / mid / in-range changes correct
+            response)
+          </span>
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.audioToneEnabled}
+            onChange={(e) => update('audioToneEnabled', e.target.checked)}
+          />
+          <span>Audio tone tracks distance (low → high pitch)</span>
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.textOverlayEnabled}
+            onChange={(e) => update('textOverlayEnabled', e.target.checked)}
+          />
+          <span>Show text label overlay (learning mode)</span>
+        </label>
+      </section>
+
+      <section className="settings-section">
         <h2>Penalty counter</h2>
         <label className="checkbox-row">
           <input

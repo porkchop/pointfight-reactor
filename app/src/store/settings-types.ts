@@ -13,6 +13,9 @@ export interface SettingsRecord {
   penaltyCounterEnabled: boolean
   perFalseStartPenalty: number
   perHesitationPenalty: number
+  distanceAxisEnabled: boolean
+  audioToneEnabled: boolean
+  textOverlayEnabled: boolean
 }
 
 export const DEFAULT_SETTINGS: SettingsRecord = {
@@ -28,4 +31,7 @@ export const DEFAULT_SETTINGS: SettingsRecord = {
   penaltyCounterEnabled: false,
   perFalseStartPenalty: 1,
   perHesitationPenalty: 1,
+  distanceAxisEnabled: false,
+  audioToneEnabled: false,
+  textOverlayEnabled: false,
 }

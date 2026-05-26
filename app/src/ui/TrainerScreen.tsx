@@ -2,15 +2,21 @@ import { useEffect, useState } from 'react'
 import { useSession } from '../store/session'
 import { pendingPenalties } from '../engine/drill'
 import type { RepResult } from '../engine/types'
+import { CueStage } from './CueStage'
 import { RestScreen } from './RestScreen'
+import { startDistanceTone, stopDistanceTone } from '../audio/distanceTone'
 
 const FEEDBACK_HOLD_MS = 1000
 
 interface TrainerScreenProps {
   commitKeyCode: string
+  commitKeyLabel: string
 }
 
-export function TrainerScreen({ commitKeyCode }: TrainerScreenProps) {
+export function TrainerScreen({
+  commitKeyCode,
+  commitKeyLabel,
+}: TrainerScreenProps) {
   const phase = useSession((s) => s.phase)
   const current = useSession((s) => s.current)
   const feedback = useSession((s) => s.feedback)
@@ -60,6 +66,14 @@ export function TrainerScreen({ commitKeyCode }: TrainerScreenProps) {
     const timer = window.setTimeout(acknowledgeFeedback, FEEDBACK_HOLD_MS)
     return () => window.clearTimeout(timer)
   }, [phase, acknowledgeFeedback])
+
+  useEffect(() => {
+    if (!config.audioToneEnabled) return
+    if (phase === 'showing' && current?.distance) {
+      startDistanceTone(current.distance)
+      return () => stopDistanceTone()
+    }
+  }, [phase, current?.distance, config.audioToneEnabled])
 
   const [now, setNow] = useState<number>(() => performance.now())
   useEffect(() => {
@@ -122,12 +136,12 @@ export function TrainerScreen({ commitKeyCode }: TrainerScreenProps) {
         )}
 
         {phase === 'showing' && current && (
-          <div className="cue">
-            <span className="cue-label">{current.cue.label}</span>
-            <span className="cue-sub">
-              {current.cue.isGo ? 'Commit now' : 'Hold position'}
-            </span>
-          </div>
+          <CueStage
+            cue={current.cue}
+            distance={current.distance}
+            textOverlayEnabled={config.textOverlayEnabled}
+            keyHint={commitKeyLabel}
+          />
         )}
 
         {phase === 'feedback' && feedback && (
@@ -136,9 +150,7 @@ export function TrainerScreen({ commitKeyCode }: TrainerScreenProps) {
               {feedbackLabel(feedback.rep.result)}
             </span>
             {feedback.rep.reactionMs !== null && (
-              <span className="feedback-sub">
-                {Math.round(feedback.rep.reactionMs)} ms
-              </span>
+              <span className="feedback-sub">{feedback.rep.reactionMs} ms</span>
             )}
           </div>
         )}

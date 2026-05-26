@@ -26,7 +26,12 @@ function App() {
   if (phase === 'idle')
     return <IdleScreen onOpenSettings={() => setShowSettings(true)} />
   if (phase === 'ended') return <SummaryScreen />
-  return <TrainerScreen commitKeyCode={settings.commitKeyCode} />
+  return (
+    <TrainerScreen
+      commitKeyCode={settings.commitKeyCode}
+      commitKeyLabel={settings.commitKeyLabel}
+    />
+  )
 }
 
 export default App

@@ -7,6 +7,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Opponent closes distance with a deliberate step',
     isGo: true,
     expectedResponse: 'blitz',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: true, expectedResponse: 'blitz' },
+      in_range: { isGo: true, expectedResponse: 'stop_kick' },
+    },
   },
   {
     id: 'blitzes',
@@ -14,6 +19,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Opponent launches a full-commit blitz',
     isGo: true,
     expectedResponse: 'jam_entry',
+    byDistance: {
+      far: { isGo: true, expectedResponse: 'jam_entry' },
+      mid: { isGo: true, expectedResponse: 'jam_entry' },
+      in_range: { isGo: true, expectedResponse: 'stop_kick' },
+    },
   },
   {
     id: 'lifts_lead_leg',
@@ -21,6 +31,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Opponent loads the front leg — kick incoming',
     isGo: true,
     expectedResponse: 'stop_kick',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: true, expectedResponse: 'stop_kick' },
+      in_range: { isGo: true, expectedResponse: 'stop_kick' },
+    },
   },
   {
     id: 'drops_lead_hand',
@@ -28,6 +43,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Opponent drops the lead hand — opening',
     isGo: true,
     expectedResponse: 'blitz',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: true, expectedResponse: 'blitz' },
+      in_range: { isGo: true, expectedResponse: 'jam_entry' },
+    },
   },
   {
     id: 'retreats',
@@ -35,6 +55,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Opponent backs out — chase the gap',
     isGo: true,
     expectedResponse: 'blitz',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: true, expectedResponse: 'blitz' },
+      in_range: { isGo: true, expectedResponse: 'blitz' },
+    },
   },
   {
     id: 'freezes',
@@ -42,6 +67,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Opponent stops moving — break their rhythm',
     isGo: true,
     expectedResponse: 'angle_counter',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: true, expectedResponse: 'angle_counter' },
+      in_range: { isGo: true, expectedResponse: 'angle_counter' },
+    },
   },
   {
     id: 'fake_steps',
@@ -49,6 +79,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Half-step bait — do NOT commit',
     isGo: false,
     expectedResponse: 'do_nothing',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: false, expectedResponse: 'do_nothing' },
+      in_range: { isGo: false, expectedResponse: 'do_nothing' },
+    },
   },
   {
     id: 'no_go_bait',
@@ -56,6 +91,11 @@ export const CUE_LIBRARY: readonly CueDef[] = Object.freeze([
     description: 'Obvious bait — hold position',
     isGo: false,
     expectedResponse: 'do_nothing',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: false, expectedResponse: 'do_nothing' },
+      in_range: { isGo: false, expectedResponse: 'do_nothing' },
+    },
   },
 ])
 

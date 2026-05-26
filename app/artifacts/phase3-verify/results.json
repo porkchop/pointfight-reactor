@@ -1,0 +1,216 @@
+{
+  "results": {
+    "C1": {
+      "pass": true,
+      "detail": {
+        "seen": [
+          {
+            "cueId": "fake_steps",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "retreats",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "no_go_bait",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "steps_in",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "steps_in",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "fake_steps",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "steps_in",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "drops_lead_hand",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "fake_steps",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "drops_lead_hand",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "lifts_lead_leg",
+            "hasOverlay": false
+          },
+          {
+            "cueId": "drops_lead_hand",
+            "hasOverlay": false
+          }
+        ],
+        "screenshots": 2
+      }
+    },
+    "C2": {
+      "pass": true,
+      "detail": {
+        "overlayOn": true,
+        "overlayOff": true,
+        "on": "/home/aaron/dev/projects/aaron/pointfight-reactor/app/artifacts/phase3-verify/c2-overlay-on-1.png",
+        "off": "/home/aaron/dev/projects/aaron/pointfight-reactor/app/artifacts/phase3-verify/c2-overlay-off-1.png"
+      }
+    },
+    "C3": {
+      "pass": true,
+      "detail": {
+        "distanceScales": {
+          "mid": {
+            "scale": 0.7,
+            "label": "MID"
+          },
+          "in_range": {
+            "scale": 1,
+            "label": "IN RANGE"
+          },
+          "far": {
+            "scale": 0.45,
+            "label": "FAR"
+          }
+        },
+        "distanceShots": {
+          "mid": "/home/aaron/dev/projects/aaron/pointfight-reactor/app/artifacts/phase3-verify/c3-distance-mid.png",
+          "in_range": "/home/aaron/dev/projects/aaron/pointfight-reactor/app/artifacts/phase3-verify/c3-distance-in_range.png",
+          "far": "/home/aaron/dev/projects/aaron/pointfight-reactor/app/artifacts/phase3-verify/c3-distance-far.png"
+        }
+      }
+    },
+    "C4": {
+      "pass": true,
+      "detail": {
+        "totalObs": 35,
+        "hits": 7,
+        "samples": [
+          {
+            "cueId": "drops_lead_hand",
+            "distance": "in_range",
+            "feedbackLabel": "LATE",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-late"
+            ]
+          },
+          {
+            "cueId": "drops_lead_hand",
+            "distance": "in_range",
+            "feedbackLabel": "LATE",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-late"
+            ]
+          },
+          {
+            "cueId": "retreats",
+            "distance": "in_range",
+            "feedbackLabel": "LATE",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-late"
+            ]
+          },
+          {
+            "cueId": "lifts_lead_leg",
+            "distance": "mid",
+            "feedbackLabel": "LATE",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-late"
+            ]
+          },
+          {
+            "cueId": "freezes",
+            "distance": "far",
+            "feedbackLabel": "HOLD ✓",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-correct_no_go"
+            ]
+          },
+          {
+            "cueId": "retreats",
+            "distance": "far",
+            "feedbackLabel": "HOLD ✓",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-correct_no_go"
+            ]
+          },
+          {
+            "cueId": "fake_steps",
+            "distance": "mid",
+            "feedbackLabel": "HOLD ✓",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-correct_no_go"
+            ]
+          },
+          {
+            "cueId": "retreats",
+            "distance": "in_range",
+            "feedbackLabel": "LATE",
+            "cls": [
+              "screen",
+              "trainer",
+              "trainer-late"
+            ]
+          }
+        ]
+      }
+    },
+    "C5": {
+      "pass": true,
+      "detail": {
+        "hasAudioContext": true,
+        "audioErrors": []
+      }
+    },
+    "C6": {
+      "pass": true,
+      "detail": {
+        "uniqueCues": [
+          "freezes",
+          "retreats",
+          "fake_steps",
+          "blitzes",
+          "lifts_lead_leg",
+          "steps_in",
+          "drops_lead_hand",
+          "no_go_bait"
+        ],
+        "count": 8
+      }
+    },
+    "Phase2": {
+      "pass": true,
+      "detail": {
+        "hudText": "Round 1/2Rep 10:04Stop (Esc)",
+        "sawRest": true,
+        "sawSummary": true,
+        "recentCount": 5
+      }
+    }
+  },
+  "consoleErrors": [],
+  "networkErrors": []
+}

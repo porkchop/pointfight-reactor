@@ -3,13 +3,20 @@ import {
   classifyPreCuePress,
   classifyRep,
   pendingPenalties,
+  pickDistance,
   pickNextCue,
   pickPreCueDelayMs,
+  resolveCueAtDistance,
   summarize,
   validateDrillConfig,
 } from './drill'
 import { mulberry32 } from './rng'
-import { DEFAULT_DRILL_CONFIG, type RepRecord } from './types'
+import {
+  DEFAULT_DRILL_CONFIG,
+  DISTANCES,
+  type CueDef,
+  type RepRecord,
+} from './types'
 
 const goCue = {
   id: 'steps_in' as const,
@@ -33,7 +40,7 @@ describe('classifyRep', () => {
   it('press before cue is a false start regardless of cue type', () => {
     expect(
       classifyRep({
-        cue: goCue,
+        isGo: goCue.isGo,
         cueShownAt: 1000,
         pressedAt: 900,
         responseWindowMs: config.responseWindowMs,
@@ -43,7 +50,7 @@ describe('classifyRep', () => {
 
     expect(
       classifyRep({
-        cue: noGoCue,
+        isGo: noGoCue.isGo,
         cueShownAt: 1000,
         pressedAt: 900,
         responseWindowMs: config.responseWindowMs,
@@ -54,7 +61,7 @@ describe('classifyRep', () => {
 
   it('fast press on a go cue is correct_go with reaction time', () => {
     const out = classifyRep({
-      cue: goCue,
+      isGo: goCue.isGo,
       cueShownAt: 1000,
       pressedAt: 1280,
       responseWindowMs: config.responseWindowMs,
@@ -67,7 +74,7 @@ describe('classifyRep', () => {
 
   it('slow but in-window press on a go cue is hesitation', () => {
     const out = classifyRep({
-      cue: goCue,
+      isGo: goCue.isGo,
       cueShownAt: 1000,
       pressedAt: 1000 + config.hesitationThresholdMs + 50,
       responseWindowMs: config.responseWindowMs,
@@ -80,7 +87,7 @@ describe('classifyRep', () => {
 
   it('press exactly at hesitation threshold is hesitation (boundary)', () => {
     const out = classifyRep({
-      cue: goCue,
+      isGo: goCue.isGo,
       cueShownAt: 0,
       pressedAt: config.hesitationThresholdMs,
       responseWindowMs: config.responseWindowMs,
@@ -92,7 +99,7 @@ describe('classifyRep', () => {
   it('no press on a go cue is late', () => {
     expect(
       classifyRep({
-        cue: goCue,
+        isGo: goCue.isGo,
         cueShownAt: 1000,
         pressedAt: null,
         responseWindowMs: config.responseWindowMs,
@@ -103,7 +110,7 @@ describe('classifyRep', () => {
 
   it('press exactly at the response window boundary still counts (go cue)', () => {
     const out = classifyRep({
-      cue: goCue,
+      isGo: goCue.isGo,
       cueShownAt: 0,
       pressedAt: config.responseWindowMs,
       responseWindowMs: config.responseWindowMs,
@@ -115,7 +122,7 @@ describe('classifyRep', () => {
 
   it('press past the response window on a go cue is late', () => {
     const out = classifyRep({
-      cue: goCue,
+      isGo: goCue.isGo,
       cueShownAt: 0,
       pressedAt: config.responseWindowMs + 100,
       responseWindowMs: config.responseWindowMs,
@@ -127,7 +134,7 @@ describe('classifyRep', () => {
 
   it('press on a no-go cue inside the window is a false start', () => {
     const out = classifyRep({
-      cue: noGoCue,
+      isGo: noGoCue.isGo,
       cueShownAt: 1000,
       pressedAt: 1300,
       responseWindowMs: config.responseWindowMs,
@@ -141,7 +148,7 @@ describe('classifyRep', () => {
   it('no press on a no-go cue is correct_no_go', () => {
     expect(
       classifyRep({
-        cue: noGoCue,
+        isGo: noGoCue.isGo,
         cueShownAt: 1000,
         pressedAt: null,
         responseWindowMs: config.responseWindowMs,
@@ -305,6 +312,106 @@ describe('validateDrillConfig', () => {
   it('rejects negative rest duration', () => {
     const errs = validateDrillConfig({ ...DEFAULT_DRILL_CONFIG, restMs: -1 })
     expect(errs.map((e) => e.field)).toContain('restMs')
+  })
+})
+
+describe('pickDistance', () => {
+  it('returns one of the three distances', () => {
+    const rng = mulberry32(1)
+    for (let i = 0; i < 50; i++) {
+      const d = pickDistance(rng)
+      expect(DISTANCES).toContain(d)
+    }
+  })
+
+  it('approximates a uniform distribution over many draws', () => {
+    const rng = mulberry32(7)
+    const counts: Record<string, number> = { far: 0, mid: 0, in_range: 0 }
+    const n = 3000
+    for (let i = 0; i < n; i++) {
+      counts[pickDistance(rng)]++
+    }
+    for (const d of DISTANCES) {
+      const ratio = counts[d] / n
+      expect(ratio).toBeGreaterThan(0.27)
+      expect(ratio).toBeLessThan(0.39)
+    }
+  })
+})
+
+describe('resolveCueAtDistance', () => {
+  const baseCue: CueDef = {
+    id: 'steps_in',
+    label: 'STEPS IN',
+    description: 'test',
+    isGo: true,
+    expectedResponse: 'blitz',
+    byDistance: {
+      far: { isGo: false, expectedResponse: 'do_nothing' },
+      mid: { isGo: true, expectedResponse: 'blitz' },
+      in_range: { isGo: true, expectedResponse: 'stop_kick' },
+    },
+  }
+  const flatCue: CueDef = {
+    id: 'freezes',
+    label: 'FREEZES',
+    description: 'test',
+    isGo: true,
+    expectedResponse: 'angle_counter',
+  }
+
+  it('returns the by-distance entry when distance + table both present', () => {
+    expect(resolveCueAtDistance(baseCue, 'far')).toEqual({
+      isGo: false,
+      expectedResponse: 'do_nothing',
+    })
+    expect(resolveCueAtDistance(baseCue, 'in_range')).toEqual({
+      isGo: true,
+      expectedResponse: 'stop_kick',
+    })
+  })
+
+  it('falls back to base when distance is null (axis disabled)', () => {
+    expect(resolveCueAtDistance(baseCue, null)).toEqual({
+      isGo: true,
+      expectedResponse: 'blitz',
+    })
+  })
+
+  it('falls back to base when cue has no distance table', () => {
+    expect(resolveCueAtDistance(flatCue, 'far')).toEqual({
+      isGo: true,
+      expectedResponse: 'angle_counter',
+    })
+  })
+})
+
+describe('pickNextCue with distance axis', () => {
+  it('selects from the full library uniformly when distance axis is enabled', () => {
+    const rng = mulberry32(42)
+    const ids = new Set<string>()
+    for (let i = 0; i < 200; i++) {
+      ids.add(
+        pickNextCue(rng, { ...DEFAULT_DRILL_CONFIG, distanceAxisEnabled: true })
+          .id,
+      )
+    }
+    // Should see all 8 cues across 200 draws.
+    expect(ids.size).toBe(8)
+  })
+
+  it('ignores goCueProbability when distance axis is enabled (still produces no-go cues even with prob=1)', () => {
+    const rng = mulberry32(11)
+    let noGoSeen = 0
+    for (let i = 0; i < 200; i++) {
+      const cue = pickNextCue(rng, {
+        ...DEFAULT_DRILL_CONFIG,
+        distanceAxisEnabled: true,
+        goCueProbability: 1,
+      })
+      if (!cue.isGo) noGoSeen++
+    }
+    expect(noGoSeen).toBeGreaterThan(20)
   })
 })
 

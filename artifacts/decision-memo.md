@@ -1,210 +1,159 @@
-# Phase 2 decision memo — round structure + configurable input
+# Phase 3 decision memo — visuospatial cues + distance axis
 
-(Supersedes the Phase 1 memo. The Phase 1 memo is preserved in git history;
-the most recent memo is the one of record per `QUALITY_GATES.md` §"Planning gate".)
+(Supersedes the Phase 2 memo. Prior memos preserved in git history.)
 
 ## Goal
-Make every rep require a physical commitment, place reps inside a workout
-structure, and surface enough configuration that the athlete can use the app
-in his real gym setup before competition (2 weeks out).
+Replace text cues with visual silhouettes/symbols, add the distance axis
+(far / mid / in-range) as a second decision dimension, and make the cue
+palette data-driven so new cues can be added without code changes.
 
-## Scope decision: split Phase 2
+## Phase 3 acceptance criteria (unchanged from `docs/PHASES.md`)
 
-`docs/PHASES.md` Phase 2 originally bundled seven acceptance criteria. One —
-phone-as-sensor with QR-paired WebRTC DataChannel and accelerometer
-threshold detection — requires its own substantial infrastructure (signaling
-server or signaling-free pairing, companion HTML, sensor calibration). It
-is the most uncertain piece and not strictly required for the athlete's
-2-week training window: USB foot pedals already provide the "real physical
-commitment" the spec demands.
+1. Each existing cue has an SVG silhouette/symbol with a short animation.
+2. Text labels render only as an optional learning overlay.
+3. Silhouette renders at three distance sizes: far / mid / in-range.
+4. Drill profiles can enable the distance axis — same cue at different
+   ranges maps to different correct responses.
+5. Optional continuous audio tone whose pitch tracks current rendered
+   distance.
+6. Cue palette and animations are data-driven (JSON or TS map) so new
+   cues can be added without code changes.
 
-Decision: **defer phone-as-sensor to a new Phase 2b**. Phase 2 ships with
-the remaining six criteria. Phone-as-sensor becomes Phase 2b, scheduled
-after Phase 3 (visuospatial cues) unless time remains before competition.
-
-`docs/PHASES.md` is updated accordingly; `artifacts/phase-update.json`
-records the change. Approved phase numbering (Phase 1) is unchanged.
-
-## Phase 2 (revised) — acceptance criteria
-
-1. USB foot pedal works as configurable input (rebindable commit key).
-2. Keyboard input remains as fallback, **flagged in session metadata**.
-3. Session structure supports rounds: configurable work / rest / count
-   (default 2:00 / 1:00 / 5).
-4. Between cues, a continuous-motion indicator shows so the athlete is
-   not standing still.
-5. Pre-cue delay upper bound configurable up to 8 s.
-6. Optional penalty counter: false starts and hesitations add reps to a
-   during-rest clear-list.
-
-## Non-goals (Phase 2)
-- Phone-as-sensor (Phase 2b).
-- Visuospatial silhouette cues (Phase 3).
-- Drill-profile CRUD (Phase 4).
-- Multi-input simultaneous (e.g. pedal + phone) — single input source per
-  session, switchable on idle screen.
+## Non-goals (Phase 3)
+- Per-cue-type RT breakdown in summary (Phase 4).
+- Anti-rhythm detection (Phase 4).
+- Long-term analytics-over-sessions trends (Phase 5).
+- Real-photo or video clip cues (Phase 6).
+- Distance from a real depth source (webcam, sensor) — distance is
+  rendered, not measured.
 
 ## Key decisions
 
-### D1. Round model: add `rounds`, `workMs`, `restMs` to `DrillConfig`
-`DrillConfig` already lives in `engine/types.ts` and flows through the
-Zustand store. Round structure is a natural extension. New fields:
+### D1. Silhouette style: simple high-contrast pictographs, not realistic figures
+The athlete needs the cue to be readable at a glance from across a gym.
+A photoreal silhouette would take a real illustrator and produce slower
+reads than a clean icon. We render each cue as a stylized pictograph —
+person-shaped, single accent color per action, ~60 lines of SVG max.
 
-```
-rounds:  number   // default 5
-workMs:  number   // default 120_000
-restMs:  number   // default 60_000
-```
+Tradeoff considered: detailed silhouettes look better in marketing but
+are slower to read under fatigue. The spec's "perception-action coupling"
+principle prefers clarity over realism. Phase 6 (video) handles realism.
 
-Engine adds a `roundIndex` (0-based) to in-flight state and a `workEndAt`
-timestamp set when each round begins. A new phase value `'rest'` joins
-`'waiting' | 'showing' | 'feedback'`. Transition rules:
+### D2. Animation: CSS keyframes on SVG sub-elements, not SVG SMIL or runtime libraries
+- CSS `@keyframes` driving `transform` on specific SVG groups (leg lifts,
+  arm drops, body steps in, etc.).
+- No SMIL (deprecated in modern browsers for cross-platform parity).
+- No Lottie/Framer in this phase — adds dependency weight and a runtime
+  cost the spec does not need.
+- Each cue's animation triggers on mount; React re-mounts the component
+  on cue change via `key={cueId + repId}`.
 
-- on `start()`: roundIndex = 0, workEndAt = now + workMs, phase = 'waiting'
-- on `recordPress`/`finishWindow`: if `performance.now() >= workEndAt`,
-  transition into `'rest'` after feedback instead of `beginRep`.
-- on rest timer expiry: increment roundIndex; if `>= rounds`, `phase = 'ended'`
-  via `stop()`; else reset workEndAt and `beginRep`.
+### D3. Distance axis: per-rep distance, opt-in via config, conditional rule table
+- New `DrillConfig` field: `distanceAxisEnabled: boolean` (default false
+  — backward compatible with Phase 2).
+- When enabled, the engine picks a distance per rep (`'far' | 'mid' | 'in_range'`)
+  with uniform probability by default.
+- A cue's expected response when distance is on comes from
+  `cue.distanceResponses?.[distance]` if present, else falls back to
+  `cue.expectedResponse`. Cues that benefit from distance (e.g. a step-in
+  is a `jam_entry` at far range but a `stop_kick` at in-range) declare
+  the full table; cues that are distance-agnostic (e.g. `freezes`)
+  declare only the base response.
+- `RepRecord` gains an optional `distance?: Distance` field. Phase 2
+  reps lack it; the type is optional so reading old rows still works.
+- Classification logic is otherwise unchanged: go/no-go derivation,
+  hesitation/late thresholds, false-start rule all stay in place.
 
-Round transitions are deterministic and unit-testable with an injected
-clock identical to Phase 1's RNG injection.
+### D4. Distance rendering: CSS transform scale on a wrapper element
+- far → 0.45
+- mid → 0.7
+- in_range → 1.0
+- The same SVG renders in all three; only the wrapper's transform scales.
+- Smooth interpolation is **not** required for Phase 3 — distance is
+  set at cue-reveal time and held for the rep's duration.
 
-### D2. Input source: keyboard vs pedal flag (no auto-detect)
-Foot pedals enumerate as standard HID keyboards. We cannot reliably
-distinguish "user pressed a key with their finger" from "user pressed a
-key with their foot" at the JS layer. So:
+### D5. Audio tone: Web Audio OscillatorNode, optional, silent on init failure
+- New `audioToneEnabled: boolean` setting (default false — audio is
+  opt-in for a gym environment that may already be loud).
+- One `AudioContext` lazily constructed at first cue. A single
+  `OscillatorNode` started on cue reveal; frequency set from distance:
+  - far → 220 Hz
+  - mid → 440 Hz
+  - in_range → 660 Hz
+- Stopped on rep end (commitRep). Disconnects oscillator and creates a
+  fresh one each rep (oscillators are single-use per spec).
+- Gain node ramps in/out 30ms to avoid clicks.
+- If `AudioContext` construction throws (older Safari, restricted
+  contexts) the audio module silently no-ops; the rest of the app
+  works normally.
 
-- Settings screen has an explicit toggle: **Keyboard (dev/fallback)** /
-  **Foot pedal**.
-- Settings screen also lets the athlete rebind the commit key (default
-  Space; pedals are commonly preconfigured to Space already, but some
-  pedals emit Enter, F12, etc.).
-- The toggle value is stamped on the session record as `inputSource`
-  and shown on the summary screen.
-- A small banner appears on the idle screen if the active source is
-  `keyboard`: "Keyboard mode — pedal recommended for live drilling".
+### D6. Cue palette is data-driven
+- New `app/src/cues/palette.ts` maps each cue id to:
+  ```
+  {
+    id, label, description, isGo, expectedResponse,
+    distanceResponses?: Record<Distance, ResponseId>,
+    Pictograph: React.FC,            // the SVG component
+    accentColor: string,             // CSS color (gym-correct / gym-warn etc.)
+  }
+  ```
+- `library.ts` re-exports the legacy `CUE_LIBRARY` / `GO_CUES` /
+  `NO_GO_CUES` shape (engine still consumes those for cue picking) but
+  the *visual* data lives in `palette.ts` so adding a cue means adding a
+  palette entry plus an engine-side entry — both purely additive.
+- Future Phase 4 drill profiles can subset the palette by id.
 
-Operational consequence: keyboard remains usable for setup/dev and is
-explicitly labelled as a fallback in stored metadata, matching the
-spec's intent.
+### D7. Where the new state lives
+- Engine: `pickDistance` pure function with injected RNG; `expectedResponseFor(cue, distance)` helper that consults the rule table.
+- Store: `distanceAxisEnabled`, `audioToneEnabled`, `textOverlayEnabled`
+  flow through `DrillConfig`; rep records optionally carry `distance`.
+- Settings UI: three new toggles in a new "Visuals" section.
+- UI: new `CueStage.tsx` component that renders the active cue's
+  Pictograph at the correct distance scale, with optional text overlay.
+- Audio: new `audio/distanceTone.ts` module (start/stop functions, lazy
+  AudioContext, no global state besides the singleton context).
 
-### D3. Continuous-motion indicator: CSS-only pulse, between cues
-A single absolutely-positioned circle on the trainer stage. CSS
-`@keyframes` pulses scale + opacity at ~110 BPM. Visible only when
-`phase === 'waiting'`. No JS timer, no per-frame state updates. Zero
-runtime cost beyond GPU compositing. This is the simplest thing that
-encodes the spec's "continuous-motion expectation" without introducing
-audio assets or new timing concerns.
-
-A future Phase 3/4 can replace this with the visuospatial cue silhouette
-when those land. For Phase 2 a soft pulse is sufficient.
-
-### D4. Pre-cue delay extension: just relax bounds + add validation
-`preCueMaxMs` currently defaults 4000. Spec says configurable up to 8000.
-No engine change required — `pickPreCueDelayMs` already accepts whatever
-bounds the config gives it. Settings UI exposes the two numbers with
-inline validation:
-
-- 500 ≤ preCueMinMs ≤ preCueMaxMs ≤ 8000
-
-Validation lives in a single `validateDrillConfig()` helper in
-`engine/drill.ts` so it can be reused by tests and the UI form.
-
-### D5. Penalty counter: derived, not stored separately
-Penalties are a *view* over the existing rep stream — no new persistent
-field needed. A pure helper `pendingPenalties(reps, perFalseStart,
-perHesitation, cleared)` returns the current outstanding count.
-
-- `cleared: number` is a new field on the session record (default 0).
-- The athlete clicks "Clear N reps" on the rest screen; the store
-  increments `cleared` by 1 each click (and persists the session).
-- Optional toggle on the settings screen: `penaltyCounterEnabled`. When
-  off, the clear-list is hidden but rep classification is unchanged.
-
-This keeps penalties as a derived view, which means importing a session
-later (CSV export, Phase 4) does not depend on a separate table.
-
-### D6. Settings persistence: small `settings` Dexie table, single row
-Add a `settings` store keyed by literal `'singleton'`. Fields:
-
-```
-{
-  id: 'singleton',
-  commitKey: 'Space' | string,       // e.g. KeyboardEvent.code
-  inputSource: 'keyboard' | 'pedal',
-  rounds, workMs, restMs,
-  preCueMinMs, preCueMaxMs,
-  penaltyCounterEnabled: boolean,
-  perFalseStartPenalty, perHesitationPenalty,
-}
-```
-
-Loaded on app boot, persisted on every settings save. Simpler than a
-flat `localStorage` adapter and gives us migration paths (Dexie
-versioning) when Phase 4 expands drill profiles. Migration: `db.version(2)`
-adds the `settings` store; `version(1)` data is untouched (sessions/reps
-schemas unchanged for Phase 2).
-
-### D7. Where new state lives
-- Engine module additions: `validateDrillConfig`, `pendingPenalties`,
-  round-state transition helpers. Pure functions; unit-tested.
-- Zustand store: `roundIndex`, `workEndAt`, `restEndAt`, `cleared`,
-  `inputSource`. Orchestration only — no domain logic in the store.
-- New `store/settings.ts` for the Dexie settings table getter/setter.
-- New `ui/SettingsScreen.tsx` reachable from idle screen.
-- New `ui/RestScreen.tsx` shown during inter-round rest with: round
-  number, time remaining, penalty clear-list (if enabled), Skip button.
-
-### D8. Backward compatibility with Phase 1 data
-- Existing `sessions` rows from Phase 1 have no `rounds` / `workMs` /
-  `inputSource` / `cleared` fields. Treat missing fields as defaults
-  when listing recent sessions.
-- The default `start()` (no overrides) uses the new defaults but does
-  not require explicit round structure to function — passing
-  `rounds: 1, workMs: Infinity` reproduces Phase 1 behavior (used in
-  existing unit tests). This preserves the Phase 1 behavior contract.
+### D8. Backward compatibility with Phase 1 + 2
+- `distance` is optional on `RepRecord`. Phase 1/2 reps lack it.
+- `distanceResponses` is optional on each palette entry.
+- `distanceAxisEnabled` defaults false; existing recent-sessions UI
+  behaves identically when the user has never toggled it on.
+- Text cue labels are preserved (the spec keeps them as an overlay)
+  so the recent-sessions display and summary by-cue table still work.
 
 ## Risks and mitigations
-- **Round timer drift across the rest screen.** Mitigation: drive both
-  work and rest from `performance.now()` absolute deadlines, not
-  setTimeout-accumulated intervals. The trainer's existing tick uses
-  this pattern already.
-- **`Space` rebind conflicts with the existing `Space=acknowledge feedback`
-  shortcut.** Mitigation: the commit key and the acknowledge key are
-  treated as the same key by intent — feedback advances on commit key
-  press. The rebind covers both uses simultaneously.
-- **Settings table absent on first run.** Mitigation: settings getter
-  seeds defaults if the row is missing.
-- **`KeyboardEvent.code` may differ across layouts for non-letter pedals.**
-  Mitigation: capture `event.code` (the physical key id, layout-independent)
-  rather than `event.key`. Display the code to the user during rebind.
+- **SVG complexity bloats bundle.** Mitigation: pictographs are ≤60 lines
+  of inline SVG each; ~480 lines total, well under 10kB after minification.
+- **Audio autoplay restrictions.** Mitigation: AudioContext is constructed
+  on first user gesture (Start drill click) — browsers permit audio after
+  a user gesture, before is unreliable. The drill start *is* a user gesture.
+- **Animation jank under heavy CSS.** Mitigation: animations target
+  `transform` only (GPU-composited). No layout-triggering properties.
+- **Distance-axis-on with cues that have no `distanceResponses`.**
+  Mitigation: fall back to the cue's base `expectedResponse`. Optional
+  warning in console if a cue lacks a distance table; not a runtime error.
 
 ## Test strategy
-- **Engine**: extend `engine/drill.test.ts` with `validateDrillConfig`
-  edge cases (lower bound, upper bound, inversion) and `pendingPenalties`
-  (counts, clearing).
-- **Round transitions**: new `engine/rounds.test.ts` driving the
-  transition helper with a controlled clock through work → rest →
-  next work → ended.
-- **Store**: extend `store/session.test.ts` with a round-end branch and
-  the cleared counter.
-- **Settings**: `store/settings.test.ts` against `fake-indexeddb`
-  covering seed-on-missing and persistence round-trip.
-- **UI**: settings form validation rejects invalid bounds (Vitest +
-  jsdom).
-- **Browser**: qa-playwright exercises a 2-round drill end-to-end:
-  starts → fires reps → enters rest with clear-list visible →
-  finishes round 2 → summary lists `inputSource: keyboard`.
+- **Engine**: extend `engine/drill.test.ts` with:
+  - `pickDistance` distribution check (uniform across far/mid/in-range)
+  - `expectedResponseFor` with and without `distanceResponses`
+- **Cue palette**: `cues/palette.test.ts` ensuring every CUE_LIBRARY entry
+  has a matching palette entry with a Pictograph component.
+- **Store**: extend `store/session.test.ts` with a rep stamped with
+  `distance` when `distanceAxisEnabled: true`.
+- **Settings**: round-trip the three new toggles.
+- **UI**: smoke-test that CueStage renders an SVG and the text overlay
+  visibility toggles correctly (Vitest + jsdom).
+- **Browser**: qa-playwright cycles through several reps with distance
+  axis on; verifies different scale classes; checks audio toggle does
+  not break the drill; takes screenshots of all three distance sizes.
 
 ## Rollback path
-Phase 2 lives entirely under `app/`. Reverting the phase commit
-restores Phase 1 behavior. Dexie schema bump (`version(2)` adding
-`settings`) is additive — Phase 1 stores remain queryable; rolling
-back simply leaves an unused IndexedDB store, which Dexie ignores
-on the prior version constructor.
+Phase 3 lives under `app/`. Reverting the phase commit restores Phase 2
+behavior. No DB schema bump required (RepRecord.distance is optional).
 
 ## Out-of-scope deferred to later phases
-- Phone-as-sensor → Phase 2b (now added to `docs/PHASES.md`).
-- Per-cue-type RT breakdown / drill-profile CRUD → Phase 4.
-- Visuospatial silhouettes → Phase 3.
-- Analytics-over-time views → Phase 5.
+- Per-cue-type RT/error breakdown in summary → Phase 4
+- Anti-rhythm detection → Phase 4
+- Multi-session analytics → Phase 5
+- Photoreal or video cues → Phase 6

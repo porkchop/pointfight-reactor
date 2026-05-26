@@ -2,8 +2,10 @@ import { create } from 'zustand'
 import {
   classifyPreCuePress,
   classifyRep,
+  pickDistance,
   pickNextCue,
   pickPreCueDelayMs,
+  resolveCueAtDistance,
   summarize,
   type ClassifyOutput,
 } from '../engine/drill'
@@ -11,6 +13,7 @@ import { defaultRng, type RNG } from '../engine/rng'
 import {
   DEFAULT_DRILL_CONFIG,
   type CueDef,
+  type Distance,
   type DrillConfig,
   type InputSource,
   type RepRecord,
@@ -28,6 +31,7 @@ export type DrillPhase =
 
 interface RepInFlight {
   cue: CueDef
+  distance: Distance | null
   preCueStartedAt: number
   preCueDelayMs: number
   cueShownAt: number | null
@@ -102,17 +106,19 @@ export const useSession = create<SessionState>((set, get) => {
 
   function commitRep(
     cue: CueDef,
+    distance: Distance | null,
     cueShownAt: number,
     pressedAt: number | null,
     classification: ClassifyOutput,
   ): void {
     const state = get()
     if (!state.sessionId || state.sessionStartedAt === null) return
+    const effective = resolveCueAtDistance(cue, distance)
     const rep: RepRecord = {
       id: newId(),
       sessionId: state.sessionId,
       cueId: cue.id,
-      isGo: cue.isGo,
+      isGo: effective.isGo,
       result: classification.result,
       reactionMs: classification.reactionMs,
       score: classification.score,
@@ -120,6 +126,7 @@ export const useSession = create<SessionState>((set, get) => {
       pressedAt,
       roundIndex: state.roundIndex,
       inputSource: state.inputSource,
+      ...(distance !== null ? { distance } : {}),
     }
     void saveRep(rep)
     const nextReps = [...state.reps, rep]
@@ -175,12 +182,14 @@ export const useSession = create<SessionState>((set, get) => {
       const { config, phase, rng } = get()
       if (phase === 'idle' || phase === 'ended') return
       const cue = pickNextCue(rng, config)
+      const distance = config.distanceAxisEnabled ? pickDistance(rng) : null
       const preCueDelayMs = pickPreCueDelayMs(rng, config)
       set({
         phase: 'waiting',
         feedback: null,
         current: {
           cue,
+          distance,
           preCueStartedAt: performance.now(),
           preCueDelayMs,
           cueShownAt: null,
@@ -202,32 +211,46 @@ export const useSession = create<SessionState>((set, get) => {
       if (!current) return
 
       if (phase === 'waiting') {
-        commitRep(current.cue, at, at, classifyPreCuePress())
+        commitRep(current.cue, current.distance, at, at, classifyPreCuePress())
         return
       }
       if (phase !== 'showing' || current.cueShownAt === null) return
 
+      const effective = resolveCueAtDistance(current.cue, current.distance)
       const classification = classifyRep({
-        cue: current.cue,
+        isGo: effective.isGo,
         cueShownAt: current.cueShownAt,
         pressedAt: at,
         responseWindowMs: config.responseWindowMs,
         hesitationThresholdMs: config.hesitationThresholdMs,
       })
-      commitRep(current.cue, current.cueShownAt, at, classification)
+      commitRep(
+        current.cue,
+        current.distance,
+        current.cueShownAt,
+        at,
+        classification,
+      )
     },
 
     finishWindow: () => {
       const { phase, current, config } = get()
       if (phase !== 'showing' || !current || current.cueShownAt === null) return
+      const effective = resolveCueAtDistance(current.cue, current.distance)
       const classification = classifyRep({
-        cue: current.cue,
+        isGo: effective.isGo,
         cueShownAt: current.cueShownAt,
         pressedAt: null,
         responseWindowMs: config.responseWindowMs,
         hesitationThresholdMs: config.hesitationThresholdMs,
       })
-      commitRep(current.cue, current.cueShownAt, null, classification)
+      commitRep(
+        current.cue,
+        current.distance,
+        current.cueShownAt,
+        null,
+        classification,
+      )
     },
 
     acknowledgeFeedback: () => {
