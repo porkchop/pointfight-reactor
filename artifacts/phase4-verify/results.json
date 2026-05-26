@@ -1,0 +1,205 @@
+{
+  "results": {
+    "C1": {
+      "pass": true,
+      "detail": {
+        "hasDefault": true,
+        "hasNewBtn": true,
+        "hasRenameBtn": true,
+        "hasDeleteBtn": true,
+        "createOK": true,
+        "renameOK": true,
+        "deleteOK": true,
+        "onlyRemainingError": true,
+        "c1": {
+          "steps": [
+            {
+              "step": "initial",
+              "names": [
+                "Default"
+              ],
+              "active": "Default"
+            },
+            {
+              "step": "after-create",
+              "names": [
+                "Default",
+                "Sparring"
+              ],
+              "active": "Sparring"
+            },
+            {
+              "step": "after-rename",
+              "names": [
+                "Default",
+                "Sparring v2"
+              ],
+              "active": "Sparring v2"
+            },
+            {
+              "step": "after-delete",
+              "names": [
+                "Default"
+              ],
+              "active": "Default"
+            },
+            {
+              "step": "delete-only-remaining",
+              "banner": "Cannot delete the only remaining profile."
+            }
+          ]
+        }
+      }
+    },
+    "C2": {
+      "pass": true,
+      "detail": {
+        "profilesNow": [
+          "Default",
+          "Sparring"
+        ],
+        "sparring": {
+          "r": 2,
+          "w": 3,
+          "rs": 2,
+          "hes": 400,
+          "late": 700,
+          "rw": 1500,
+          "distOn": true
+        },
+        "default": {
+          "rounds": 5,
+          "hes": 450
+        },
+        "thresholdsHint": "hesitation < late < response-window. Defaults 450 / 600 / 1200."
+      }
+    },
+    "C3": {
+      "pass": true,
+      "detail": {
+        "lateMisses": 4,
+        "sampleRows": [
+          [
+            "BLITZES go",
+            "2",
+            "0",
+            "0",
+            "0",
+            "2",
+            "—",
+            "—"
+          ],
+          [
+            "LIFTS LEAD LEG go",
+            "1",
+            "0",
+            "0",
+            "0",
+            "1",
+            "—",
+            "—"
+          ],
+          [
+            "RETREATS go",
+            "1",
+            "0",
+            "0",
+            "0",
+            "1",
+            "—",
+            "—"
+          ]
+        ]
+      }
+    },
+    "C4": {
+      "pass": true,
+      "detail": {
+        "cueLabels": [
+          "STEPS IN",
+          "BLITZES",
+          "LIFTS LEAD LEG",
+          "DROPS LEAD HAND",
+          "RETREATS",
+          "FREEZES",
+          "FAKE STEP",
+          "BAIT"
+        ],
+        "seen": [
+          "steps_in",
+          "no_go_bait"
+        ],
+        "onlyAllowed": true,
+        "sawStepsIn": true,
+        "validationBanner": "allowedCueIds: must include at least one go cue when distance axis is disabled"
+      }
+    },
+    "C5": {
+      "pass": true,
+      "detail": {
+        "headers": [
+          "Cue",
+          "Reps",
+          "Correct",
+          "FS",
+          "Hes",
+          "Late",
+          "Avg RT",
+          "Best-10 RT"
+        ],
+        "rowCount": 3,
+        "rowsSample": [
+          [
+            "STEPS IN go",
+            "10",
+            "1",
+            "0",
+            "5",
+            "4",
+            "356",
+            "356"
+          ],
+          [
+            "FAKE STEP no-go",
+            "1",
+            "1",
+            "0",
+            "0",
+            "0",
+            "—",
+            "—"
+          ],
+          [
+            "BAIT no-go",
+            "1",
+            "1",
+            "0",
+            "0",
+            "0",
+            "—",
+            "—"
+          ]
+        ],
+        "repsSeen": 12
+      }
+    },
+    "C6": {
+      "pass": true,
+      "detail": {
+        "present": true,
+        "h": "Rhythm pattern",
+        "text": "No rhythm pattern detected."
+      }
+    },
+    "Phase3": {
+      "pass": true,
+      "detail": {
+        "sawPicto": true,
+        "sawRest": true,
+        "sawSummary": true
+      }
+    }
+  },
+  "consoleErrors": [],
+  "networkErrors": []
+}

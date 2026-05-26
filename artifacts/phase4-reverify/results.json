@@ -1,0 +1,38 @@
+{
+  "defect1": {
+    "options": [
+      "Default"
+    ],
+    "defaultCount": 1,
+    "pass": true
+  },
+  "defect2_after_create": {
+    "options": [
+      "Default",
+      "Sparring"
+    ],
+    "selectedText": "Sparring"
+  },
+  "defect2_step2_showsSparring": true,
+  "defect2_step2_idleSample": "PointFight Reactor\n\nFirst-beat go / no-go drill\n\nKeyboard mode — foot pedal recommended for live drilling.\n\nProfile: Sparring\n\nStart drill\n\nPress Space to commit. Press Esc to stop.\n\nSettings",
+  "defect2": {
+    "showsDefault": true,
+    "stillSparring": false,
+    "idleSample": "PointFight Reactor\n\nFirst-beat go / no-go drill\n\nKeyboard mode — foot pedal recommended for live drilling.\n\nProfile: Default\n\nStart drill\n\nPress Space to commit. Press Esc to stop.\n\nSettings",
+    "pass": true
+  },
+  "bonus_startButtonFound": 1,
+  "bonus_rhythmPanel": false,
+  "bonus_finalSample": "Round 1/5\nRep 31\n1:48\nStop (Esc)",
+  "consoleErrors": [],
+  "consoleErrorCount": 0,
+  "consoleAllTail": [
+    "debug: [vite] connecting...",
+    "debug: [vite] connected.",
+    "info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "warning: Another connection wants to delete database 'pointfight-reactor'. Closing db now to resume the delete request.",
+    "debug: [vite] connecting...",
+    "debug: [vite] connected.",
+    "info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  ]
+}

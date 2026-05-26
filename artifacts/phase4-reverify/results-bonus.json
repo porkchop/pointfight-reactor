@@ -1,0 +1,17 @@
+{
+  "settingsOpensWithoutErrors": true,
+  "newProfileCreated": true,
+  "summaryText": "Session summary\n\nInput source: keyboard\n\n11\nREPS\n-11\nSCORE\n0\nCORRECT\n11\nFALSE STARTS\n0\nHESITATIONS\n0\nLATE MISSES\n—\nAVG REACTION\nRHYTHM PATTERN\n\nNo rhythm pattern detected.\n\nBY CUE\nCUE\tREPS\tCORRECT\tFS\tHES\tLATE\tAVG RT\tBEST-10 RT\nSTEPS IN GO\t2\t0\t2\t0\t0\t—\t—\nBLITZES GO\t1\t0\t1\t0\t0\t—\t—\nLIFTS LEAD LEG GO\t2\t0\t2\t0\t0\t—\t—\nDROPS LEAD HAND GO\t2\t0\t2\t0\t0\t—\t—\nRETREATS GO\t1\t0\t1\t0\t0\t—\t—\nFREEZES GO\t1\t0\t1\t0\t0\t—\t—\nFAKE STEP NO-GO\t1\t0\t1\t0\t0\t—\t—\nBAIT NO-GO\t1\t0\t1\t0\t0\t—\t—\nStart another session\nBack to start",
+  "rhythmPanelRendered": true,
+  "consoleErrors": [],
+  "consoleErrorCount": 0,
+  "consoleAllTail": [
+    "debug: [vite] connecting...",
+    "debug: [vite] connected.",
+    "info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "warning: Another connection wants to delete database 'pointfight-reactor'. Closing db now to resume the delete request.",
+    "debug: [vite] connecting...",
+    "debug: [vite] connected.",
+    "info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  ]
+}

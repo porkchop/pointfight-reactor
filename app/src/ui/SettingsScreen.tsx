@@ -1,34 +1,65 @@
 import { useEffect, useState } from 'react'
 import {
   DEFAULT_SETTINGS,
+  loadActiveProfile,
   loadSettings,
   saveSettings,
+  setActiveProfile,
   type SettingsRecord,
 } from '../store/settings'
+import {
+  buildDefaultProfile,
+  deleteProfile,
+  listProfiles,
+  saveProfile,
+  type ProfileRecord,
+} from '../store/profiles'
 import { validateDrillConfig } from '../engine/drill'
+import { CUE_LIBRARY } from '../cues/library'
 import {
   DEFAULT_DRILL_CONFIG,
   PRE_CUE_MAX_CEILING_MS,
   PRE_CUE_MIN_FLOOR_MS,
+  type CueId,
   type DrillConfig,
   type InputSource,
+  type RepResult,
 } from '../engine/types'
 
 interface SettingsScreenProps {
   onClose: () => void
 }
 
+const SCORE_FIELDS: { key: RepResult; label: string }[] = [
+  { key: 'correct_go', label: 'Correct go' },
+  { key: 'correct_no_go', label: 'Correct no-go' },
+  { key: 'late', label: 'Late' },
+  { key: 'hesitation', label: 'Hesitation' },
+  { key: 'false_start', label: 'False start' },
+]
+
 export function SettingsScreen({ onClose }: SettingsScreenProps) {
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
+  const [profile, setProfile] = useState<ProfileRecord | null>(null)
+  const [profiles, setProfiles] = useState<ProfileRecord[]>([])
   const [loaded, setLoaded] = useState(false)
   const [rebinding, setRebinding] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
 
   useEffect(() => {
-    void loadSettings().then((s) => {
-      setSettings(s)
-      setLoaded(true)
-    })
+    let cancelled = false
+    void Promise.all([loadSettings(), loadActiveProfile(), listProfiles()]).then(
+      ([s, p, all]) => {
+        if (cancelled) return
+        setSettings(s)
+        setProfile(p)
+        setProfiles(all)
+        setLoaded(true)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -50,32 +81,120 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [rebinding])
 
-  function update<K extends keyof SettingsRecord>(
+  function updateSettings<K extends keyof SettingsRecord>(
     key: K,
     value: SettingsRecord[K],
   ): void {
     setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
-  function handleSave() {
-    const asConfig: DrillConfig = { ...DEFAULT_DRILL_CONFIG, ...settings }
-    const errs = validateDrillConfig(asConfig)
+  function updateConfig<K extends keyof DrillConfig>(
+    key: K,
+    value: DrillConfig[K],
+  ): void {
+    setProfile((prev) =>
+      prev ? { ...prev, config: { ...prev.config, [key]: value } } : prev,
+    )
+  }
+
+  function updateScoreWeight(result: RepResult, value: number): void {
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            config: {
+              ...prev.config,
+              scoreWeights: { ...prev.config.scoreWeights, [result]: value },
+            },
+          }
+        : prev,
+    )
+  }
+
+  function toggleAllowedCue(cueId: CueId): void {
+    setProfile((prev) => {
+      if (!prev) return prev
+      const current = prev.config.allowedCueIds ?? CUE_LIBRARY.map((c) => c.id)
+      const set = new Set(current)
+      if (set.has(cueId)) set.delete(cueId)
+      else set.add(cueId)
+      const next =
+        set.size === CUE_LIBRARY.length ? null : Array.from(set)
+      return { ...prev, config: { ...prev.config, allowedCueIds: next } }
+    })
+  }
+
+  async function handleSave() {
+    if (!profile) return
+    const errs = validateDrillConfig(profile.config)
     if (errs.length > 0) {
       setErrors(errs.map((e) => `${e.field}: ${e.message}`))
       return
     }
     setErrors([])
-    void saveSettings(settings)
+    await saveProfile(profile)
+    await saveSettings(settings)
     onClose()
   }
 
-  if (!loaded) {
+  async function handleSwitchProfile(id: string) {
+    if (!id || id === profile?.id) return
+    await setActiveProfile(id)
+    const next = profiles.find((p) => p.id === id)
+    if (next) setProfile(next)
+    setSettings((prev) => ({ ...prev, activeProfileId: id }))
+  }
+
+  async function handleCreateProfile() {
+    const name = prompt('New profile name?', `Profile ${profiles.length + 1}`)
+    if (!name) return
+    const base = profile
+      ? { ...profile.config }
+      : { ...DEFAULT_DRILL_CONFIG }
+    const fresh = { ...buildDefaultProfile(base), name }
+    await saveProfile(fresh)
+    await setActiveProfile(fresh.id)
+    setProfile(fresh)
+    setProfiles((prev) => [...prev, fresh])
+    setSettings((prev) => ({ ...prev, activeProfileId: fresh.id }))
+  }
+
+  async function handleRenameProfile() {
+    if (!profile) return
+    const name = prompt('Rename profile to:', profile.name)
+    if (!name) return
+    const renamed = { ...profile, name }
+    await saveProfile(renamed)
+    setProfile(renamed)
+    setProfiles((prev) => prev.map((p) => (p.id === renamed.id ? renamed : p)))
+  }
+
+  async function handleDeleteProfile() {
+    if (!profile) return
+    if (profiles.length <= 1) {
+      setErrors(['Cannot delete the only remaining profile.'])
+      return
+    }
+    if (!confirm(`Delete profile "${profile.name}"?`)) return
+    const remaining = profiles.filter((p) => p.id !== profile.id)
+    await deleteProfile(profile.id)
+    await setActiveProfile(remaining[0].id)
+    setProfile(remaining[0])
+    setProfiles(remaining)
+    setSettings((prev) => ({ ...prev, activeProfileId: remaining[0].id }))
+  }
+
+  if (!loaded || !profile) {
     return (
       <div className="screen settings">
         <p>Loading settings…</p>
       </div>
     )
   }
+
+  const config = profile.config
+  const allowedCueIds = config.allowedCueIds ?? CUE_LIBRARY.map((c) => c.id)
+  const allowedSet = new Set(allowedCueIds)
 
   return (
     <div className="screen settings">
@@ -87,13 +206,54 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
       </header>
 
       <section className="settings-section">
+        <h2>Profile</h2>
+        <label>
+          <span>Active profile</span>
+          <select
+            value={profile.id}
+            onChange={(e) => void handleSwitchProfile(e.target.value)}
+            aria-label="active profile"
+          >
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="profile-actions">
+          <button
+            type="button"
+            className="link"
+            onClick={() => void handleCreateProfile()}
+          >
+            New profile
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => void handleRenameProfile()}
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => void handleDeleteProfile()}
+          >
+            Delete
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-section">
         <h2>Input</h2>
         <label>
           <span>Input source</span>
           <select
             value={settings.inputSource}
             onChange={(e) =>
-              update('inputSource', e.target.value as InputSource)
+              updateSettings('inputSource', e.target.value as InputSource)
             }
           >
             <option value="keyboard">Keyboard (fallback / dev)</option>
@@ -129,9 +289,9 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
             type="number"
             min={1}
             max={20}
-            value={settings.rounds}
+            value={config.rounds}
             onChange={(e) =>
-              update('rounds', Math.max(1, Number(e.target.value) || 1))
+              updateConfig('rounds', Math.max(1, Number(e.target.value) || 1))
             }
           />
         </label>
@@ -141,9 +301,12 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
             type="number"
             min={1}
             max={600}
-            value={Math.round(settings.workMs / 1000)}
+            value={Math.round(config.workMs / 1000)}
             onChange={(e) =>
-              update('workMs', Math.max(1, Number(e.target.value) || 1) * 1000)
+              updateConfig(
+                'workMs',
+                Math.max(1, Number(e.target.value) || 1) * 1000,
+              )
             }
           />
         </label>
@@ -153,9 +316,12 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
             type="number"
             min={0}
             max={600}
-            value={Math.round(settings.restMs / 1000)}
+            value={Math.round(config.restMs / 1000)}
             onChange={(e) =>
-              update('restMs', Math.max(0, Number(e.target.value) || 0) * 1000)
+              updateConfig(
+                'restMs',
+                Math.max(0, Number(e.target.value) || 0) * 1000,
+              )
             }
           />
         </label>
@@ -170,9 +336,9 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
             min={PRE_CUE_MIN_FLOOR_MS}
             max={PRE_CUE_MAX_CEILING_MS}
             step={100}
-            value={settings.preCueMinMs}
+            value={config.preCueMinMs}
             onChange={(e) =>
-              update('preCueMinMs', Number(e.target.value) || 0)
+              updateConfig('preCueMinMs', Number(e.target.value) || 0)
             }
           />
         </label>
@@ -183,9 +349,9 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
             min={PRE_CUE_MIN_FLOOR_MS}
             max={PRE_CUE_MAX_CEILING_MS}
             step={100}
-            value={settings.preCueMaxMs}
+            value={config.preCueMaxMs}
             onChange={(e) =>
-              update('preCueMaxMs', Number(e.target.value) || 0)
+              updateConfig('preCueMaxMs', Number(e.target.value) || 0)
             }
           />
         </label>
@@ -195,13 +361,101 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
       </section>
 
       <section className="settings-section">
+        <h2>Choice-RT thresholds</h2>
+        <label>
+          <span>Hesitation threshold (ms)</span>
+          <input
+            type="number"
+            min={100}
+            max={2000}
+            step={50}
+            value={config.hesitationThresholdMs}
+            onChange={(e) =>
+              updateConfig(
+                'hesitationThresholdMs',
+                Number(e.target.value) || 0,
+              )
+            }
+          />
+        </label>
+        <label>
+          <span>Late threshold (ms)</span>
+          <input
+            type="number"
+            min={100}
+            max={3000}
+            step={50}
+            value={config.lateThresholdMs}
+            onChange={(e) =>
+              updateConfig('lateThresholdMs', Number(e.target.value) || 0)
+            }
+          />
+        </label>
+        <label>
+          <span>Response window (ms)</span>
+          <input
+            type="number"
+            min={100}
+            max={5000}
+            step={50}
+            value={config.responseWindowMs}
+            onChange={(e) =>
+              updateConfig('responseWindowMs', Number(e.target.value) || 0)
+            }
+          />
+        </label>
+        <p className="hint">
+          hesitation &lt; late &lt; response-window. Defaults 450 / 600 / 1200.
+        </p>
+      </section>
+
+      <section className="settings-section">
+        <h2>Cue subset</h2>
+        <div className="cue-subset-grid">
+          {CUE_LIBRARY.map((cue) => (
+            <label key={cue.id} className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={allowedSet.has(cue.id)}
+                onChange={() => toggleAllowedCue(cue.id)}
+              />
+              <span>{cue.label}</span>
+            </label>
+          ))}
+        </div>
+        <p className="hint">
+          Uncheck to remove a cue from this profile. Must keep at least one go
+          cue.
+        </p>
+      </section>
+
+      <section className="settings-section">
+        <h2>Scoring weights</h2>
+        <div className="score-grid">
+          {SCORE_FIELDS.map((f) => (
+            <label key={f.key}>
+              <span>{f.label}</span>
+              <input
+                type="number"
+                step={1}
+                value={config.scoreWeights[f.key]}
+                onChange={(e) =>
+                  updateScoreWeight(f.key, Number(e.target.value) || 0)
+                }
+              />
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-section">
         <h2>Visuals</h2>
         <label className="checkbox-row">
           <input
             type="checkbox"
-            checked={settings.distanceAxisEnabled}
+            checked={config.distanceAxisEnabled}
             onChange={(e) =>
-              update('distanceAxisEnabled', e.target.checked)
+              updateConfig('distanceAxisEnabled', e.target.checked)
             }
           />
           <span>
@@ -212,16 +466,18 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
         <label className="checkbox-row">
           <input
             type="checkbox"
-            checked={settings.audioToneEnabled}
-            onChange={(e) => update('audioToneEnabled', e.target.checked)}
+            checked={config.audioToneEnabled}
+            onChange={(e) => updateConfig('audioToneEnabled', e.target.checked)}
           />
           <span>Audio tone tracks distance (low → high pitch)</span>
         </label>
         <label className="checkbox-row">
           <input
             type="checkbox"
-            checked={settings.textOverlayEnabled}
-            onChange={(e) => update('textOverlayEnabled', e.target.checked)}
+            checked={config.textOverlayEnabled}
+            onChange={(e) =>
+              updateConfig('textOverlayEnabled', e.target.checked)
+            }
           />
           <span>Show text label overlay (learning mode)</span>
         </label>
@@ -232,16 +488,16 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
         <label className="checkbox-row">
           <input
             type="checkbox"
-            checked={settings.penaltyCounterEnabled}
+            checked={config.penaltyCounterEnabled}
             onChange={(e) =>
-              update('penaltyCounterEnabled', e.target.checked)
+              updateConfig('penaltyCounterEnabled', e.target.checked)
             }
           />
           <span>
             False starts and hesitations add reps to a during-rest clear-list
           </span>
         </label>
-        {settings.penaltyCounterEnabled && (
+        {config.penaltyCounterEnabled && (
           <>
             <label>
               <span>Reps per false start</span>
@@ -249,9 +505,9 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
                 type="number"
                 min={0}
                 max={20}
-                value={settings.perFalseStartPenalty}
+                value={config.perFalseStartPenalty}
                 onChange={(e) =>
-                  update(
+                  updateConfig(
                     'perFalseStartPenalty',
                     Math.max(0, Number(e.target.value) || 0),
                   )
@@ -264,9 +520,9 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
                 type="number"
                 min={0}
                 max={20}
-                value={settings.perHesitationPenalty}
+                value={config.perHesitationPenalty}
                 onChange={(e) =>
-                  update(
+                  updateConfig(
                     'perHesitationPenalty',
                     Math.max(0, Number(e.target.value) || 0),
                   )
@@ -288,7 +544,7 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
       )}
 
       <div className="actions">
-        <button type="button" className="primary" onClick={handleSave}>
+        <button type="button" className="primary" onClick={() => void handleSave()}>
           Save
         </button>
       </div>

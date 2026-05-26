@@ -5,17 +5,7 @@ export interface SettingsRecord {
   commitKeyCode: string
   commitKeyLabel: string
   inputSource: InputSource
-  rounds: number
-  workMs: number
-  restMs: number
-  preCueMinMs: number
-  preCueMaxMs: number
-  penaltyCounterEnabled: boolean
-  perFalseStartPenalty: number
-  perHesitationPenalty: number
-  distanceAxisEnabled: boolean
-  audioToneEnabled: boolean
-  textOverlayEnabled: boolean
+  activeProfileId?: string
 }
 
 export const DEFAULT_SETTINGS: SettingsRecord = {
@@ -23,15 +13,23 @@ export const DEFAULT_SETTINGS: SettingsRecord = {
   commitKeyCode: 'Space',
   commitKeyLabel: 'Space',
   inputSource: 'keyboard',
-  rounds: 5,
-  workMs: 120_000,
-  restMs: 60_000,
-  preCueMinMs: 1500,
-  preCueMaxMs: 4000,
-  penaltyCounterEnabled: false,
-  perFalseStartPenalty: 1,
-  perHesitationPenalty: 1,
-  distanceAxisEnabled: false,
-  audioToneEnabled: false,
-  textOverlayEnabled: false,
+}
+
+/**
+ * Phase 2/3 `SettingsRecord` rows carried the drill-config fields directly.
+ * Phase 4 splits them into `ProfileRecord.config`. This type names the legacy
+ * shape so the migration in `loadActiveProfile` can read them once safely.
+ */
+export interface LegacySettingsFields {
+  preCueMinMs?: number
+  preCueMaxMs?: number
+  rounds?: number
+  workMs?: number
+  restMs?: number
+  penaltyCounterEnabled?: boolean
+  perFalseStartPenalty?: number
+  perHesitationPenalty?: number
+  distanceAxisEnabled?: boolean
+  audioToneEnabled?: boolean
+  textOverlayEnabled?: boolean
 }

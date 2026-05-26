@@ -211,7 +211,13 @@ export const useSession = create<SessionState>((set, get) => {
       if (!current) return
 
       if (phase === 'waiting') {
-        commitRep(current.cue, current.distance, at, at, classifyPreCuePress())
+        commitRep(
+          current.cue,
+          current.distance,
+          at,
+          at,
+          classifyPreCuePress(config.scoreWeights),
+        )
         return
       }
       if (phase !== 'showing' || current.cueShownAt === null) return
@@ -223,6 +229,8 @@ export const useSession = create<SessionState>((set, get) => {
         pressedAt: at,
         responseWindowMs: config.responseWindowMs,
         hesitationThresholdMs: config.hesitationThresholdMs,
+        lateThresholdMs: config.lateThresholdMs,
+        scoreWeights: config.scoreWeights,
       })
       commitRep(
         current.cue,
@@ -243,6 +251,8 @@ export const useSession = create<SessionState>((set, get) => {
         pressedAt: null,
         responseWindowMs: config.responseWindowMs,
         hesitationThresholdMs: config.hesitationThresholdMs,
+        lateThresholdMs: config.lateThresholdMs,
+        scoreWeights: config.scoreWeights,
       })
       commitRep(
         current.cue,

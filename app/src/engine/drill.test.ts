@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  antiRhythmSignal,
   classifyPreCuePress,
   classifyRep,
+  cueBreakdown,
   pendingPenalties,
   pickDistance,
   pickNextCue,
@@ -18,128 +20,106 @@ import {
   type RepRecord,
 } from './types'
 
-const goCue = {
-  id: 'steps_in' as const,
-  label: 'STEPS IN',
-  description: 'go cue under test',
-  isGo: true,
-  expectedResponse: 'blitz' as const,
-}
-
-const noGoCue = {
-  id: 'fake_steps' as const,
-  label: 'FAKE',
-  description: 'no-go cue under test',
-  isGo: false,
-  expectedResponse: 'do_nothing' as const,
-}
-
 const config = DEFAULT_DRILL_CONFIG
+
+const cls = (input: {
+  isGo: boolean
+  cueShownAt: number
+  pressedAt: number | null
+}) =>
+  ({
+    ...input,
+    responseWindowMs: config.responseWindowMs,
+    hesitationThresholdMs: config.hesitationThresholdMs,
+    lateThresholdMs: config.lateThresholdMs,
+    scoreWeights: config.scoreWeights,
+  })
 
 describe('classifyRep', () => {
   it('press before cue is a false start regardless of cue type', () => {
     expect(
-      classifyRep({
-        isGo: goCue.isGo,
-        cueShownAt: 1000,
-        pressedAt: 900,
-        responseWindowMs: config.responseWindowMs,
-        hesitationThresholdMs: config.hesitationThresholdMs,
-      }),
+      classifyRep(cls({ isGo: true, cueShownAt: 1000, pressedAt: 900 })),
     ).toEqual({ result: 'false_start', reactionMs: null, score: -1 })
 
     expect(
-      classifyRep({
-        isGo: noGoCue.isGo,
-        cueShownAt: 1000,
-        pressedAt: 900,
-        responseWindowMs: config.responseWindowMs,
-        hesitationThresholdMs: config.hesitationThresholdMs,
-      }),
+      classifyRep(cls({ isGo: false, cueShownAt: 1000, pressedAt: 900 })),
     ).toEqual({ result: 'false_start', reactionMs: null, score: -1 })
   })
 
   it('fast press on a go cue is correct_go with reaction time', () => {
-    const out = classifyRep({
-      isGo: goCue.isGo,
-      cueShownAt: 1000,
-      pressedAt: 1280,
-      responseWindowMs: config.responseWindowMs,
-      hesitationThresholdMs: config.hesitationThresholdMs,
-    })
+    const out = classifyRep(
+      cls({ isGo: true, cueShownAt: 1000, pressedAt: 1280 }),
+    )
     expect(out.result).toBe('correct_go')
     expect(out.reactionMs).toBe(280)
     expect(out.score).toBe(1)
   })
 
-  it('slow but in-window press on a go cue is hesitation', () => {
-    const out = classifyRep({
-      isGo: goCue.isGo,
-      cueShownAt: 1000,
-      pressedAt: 1000 + config.hesitationThresholdMs + 50,
-      responseWindowMs: config.responseWindowMs,
-      hesitationThresholdMs: config.hesitationThresholdMs,
-    })
+  it('slow but in-band press on a go cue is hesitation', () => {
+    const out = classifyRep(
+      cls({
+        isGo: true,
+        cueShownAt: 1000,
+        pressedAt: 1000 + config.hesitationThresholdMs + 50,
+      }),
+    )
     expect(out.result).toBe('hesitation')
     expect(out.reactionMs).toBe(config.hesitationThresholdMs + 50)
     expect(out.score).toBe(-2)
   })
 
-  it('press exactly at hesitation threshold is hesitation (boundary)', () => {
-    const out = classifyRep({
-      isGo: goCue.isGo,
-      cueShownAt: 0,
-      pressedAt: config.hesitationThresholdMs,
-      responseWindowMs: config.responseWindowMs,
-      hesitationThresholdMs: config.hesitationThresholdMs,
-    })
+  it('press exactly at hesitation threshold is hesitation (lower boundary)', () => {
+    const out = classifyRep(
+      cls({
+        isGo: true,
+        cueShownAt: 0,
+        pressedAt: config.hesitationThresholdMs,
+      }),
+    )
     expect(out.result).toBe('hesitation')
+  })
+
+  it('press just under the late threshold is still hesitation', () => {
+    const out = classifyRep(
+      cls({
+        isGo: true,
+        cueShownAt: 0,
+        pressedAt: config.lateThresholdMs - 1,
+      }),
+    )
+    expect(out.result).toBe('hesitation')
+  })
+
+  it('press at the late threshold is late', () => {
+    const out = classifyRep(
+      cls({ isGo: true, cueShownAt: 0, pressedAt: config.lateThresholdMs }),
+    )
+    expect(out.result).toBe('late')
+    expect(out.reactionMs).toBe(config.lateThresholdMs)
   })
 
   it('no press on a go cue is late', () => {
     expect(
-      classifyRep({
-        isGo: goCue.isGo,
-        cueShownAt: 1000,
-        pressedAt: null,
-        responseWindowMs: config.responseWindowMs,
-        hesitationThresholdMs: config.hesitationThresholdMs,
-      }),
+      classifyRep(cls({ isGo: true, cueShownAt: 1000, pressedAt: null })),
     ).toEqual({ result: 'late', reactionMs: null, score: 0 })
   })
 
-  it('press exactly at the response window boundary still counts (go cue)', () => {
-    const out = classifyRep({
-      isGo: goCue.isGo,
-      cueShownAt: 0,
-      pressedAt: config.responseWindowMs,
-      responseWindowMs: config.responseWindowMs,
-      hesitationThresholdMs: config.hesitationThresholdMs,
-    })
-    expect(out.result).toBe('hesitation')
-    expect(out.reactionMs).toBe(config.responseWindowMs)
-  })
-
-  it('press past the response window on a go cue is late', () => {
-    const out = classifyRep({
-      isGo: goCue.isGo,
-      cueShownAt: 0,
-      pressedAt: config.responseWindowMs + 100,
-      responseWindowMs: config.responseWindowMs,
-      hesitationThresholdMs: config.hesitationThresholdMs,
-    })
+  it('press past the response window on a go cue is late (no rt)', () => {
+    const out = classifyRep(
+      cls({
+        isGo: true,
+        cueShownAt: 0,
+        pressedAt: config.responseWindowMs + 100,
+      }),
+    )
     expect(out.result).toBe('late')
     expect(out.reactionMs).toBeNull()
   })
 
   it('press on a no-go cue inside the window is a false start', () => {
-    const out = classifyRep({
-      isGo: noGoCue.isGo,
-      cueShownAt: 1000,
-      pressedAt: 1300,
-      responseWindowMs: config.responseWindowMs,
-      hesitationThresholdMs: config.hesitationThresholdMs,
-    })
+    const out = classifyRep(
+      cls({ isGo: false, cueShownAt: 1000, pressedAt: 1300 }),
+    )
     expect(out.result).toBe('false_start')
     expect(out.reactionMs).toBe(300)
     expect(out.score).toBe(-1)
@@ -147,24 +127,38 @@ describe('classifyRep', () => {
 
   it('no press on a no-go cue is correct_no_go', () => {
     expect(
-      classifyRep({
-        isGo: noGoCue.isGo,
-        cueShownAt: 1000,
-        pressedAt: null,
-        responseWindowMs: config.responseWindowMs,
-        hesitationThresholdMs: config.hesitationThresholdMs,
-      }),
+      classifyRep(cls({ isGo: false, cueShownAt: 1000, pressedAt: null })),
     ).toEqual({ result: 'correct_no_go', reactionMs: null, score: 1 })
+  })
+
+  it('uses configured scoreWeights when scoring the rep', () => {
+    const customWeights = {
+      ...config.scoreWeights,
+      correct_go: 5,
+      hesitation: -10,
+    }
+    const out = classifyRep({
+      ...cls({ isGo: true, cueShownAt: 0, pressedAt: 200 }),
+      scoreWeights: customWeights,
+    })
+    expect(out.score).toBe(5)
+    const slow = classifyRep({
+      ...cls({ isGo: true, cueShownAt: 0, pressedAt: 500 }),
+      scoreWeights: customWeights,
+    })
+    expect(slow.score).toBe(-10)
   })
 })
 
 describe('classifyPreCuePress', () => {
-  it('always returns false_start with no reaction time', () => {
-    expect(classifyPreCuePress()).toEqual({
+  it('returns false_start using configured weights', () => {
+    expect(classifyPreCuePress(config.scoreWeights)).toEqual({
       result: 'false_start',
       reactionMs: null,
       score: -1,
     })
+    expect(classifyPreCuePress({ ...config.scoreWeights, false_start: -3 }))
+      .toEqual({ result: 'false_start', reactionMs: null, score: -3 })
   })
 })
 
@@ -412,6 +406,195 @@ describe('pickNextCue with distance axis', () => {
       if (!cue.isGo) noGoSeen++
     }
     expect(noGoSeen).toBeGreaterThan(20)
+  })
+})
+
+describe('pickNextCue with allowedCueIds subset', () => {
+  it('only returns cues in the subset', () => {
+    const rng = mulberry32(8)
+    for (let i = 0; i < 50; i++) {
+      const cue = pickNextCue(rng, {
+        ...DEFAULT_DRILL_CONFIG,
+        allowedCueIds: ['steps_in', 'fake_steps'],
+        goCueProbability: 0.5,
+      })
+      expect(['steps_in', 'fake_steps']).toContain(cue.id)
+    }
+  })
+
+  it('falls back to the available pool when the configured prob has no candidates', () => {
+    const rng = mulberry32(8)
+    // only no-go cue in the subset; goCueProbability=1 would normally pick from GO_CUES
+    for (let i = 0; i < 20; i++) {
+      const cue = pickNextCue(rng, {
+        ...DEFAULT_DRILL_CONFIG,
+        allowedCueIds: ['fake_steps'],
+        goCueProbability: 1,
+      })
+      expect(cue.id).toBe('fake_steps')
+    }
+  })
+})
+
+describe('validateDrillConfig late threshold + cue subset', () => {
+  it('rejects hesitation threshold above late threshold', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      hesitationThresholdMs: 800,
+      lateThresholdMs: 600,
+    })
+    expect(errs.map((e) => e.field)).toContain('lateThresholdMs')
+  })
+
+  it('rejects late threshold above response window', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      lateThresholdMs: 1500,
+      responseWindowMs: 1200,
+    })
+    expect(errs.map((e) => e.field)).toContain('responseWindowMs')
+  })
+
+  it('rejects empty allowedCueIds array', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      allowedCueIds: [],
+    })
+    expect(errs.map((e) => e.field)).toContain('allowedCueIds')
+  })
+
+  it('rejects allowedCueIds with no go cues when distance axis is off', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      allowedCueIds: ['fake_steps', 'no_go_bait'],
+      distanceAxisEnabled: false,
+    })
+    expect(errs.map((e) => e.field)).toContain('allowedCueIds')
+  })
+})
+
+describe('cueBreakdown', () => {
+  const make = (
+    cueId: CueDef['id'],
+    result: RepRecord['result'],
+    rt: number | null,
+  ): RepRecord => ({
+    id: `r-${Math.random()}`,
+    sessionId: 's',
+    cueId,
+    isGo: result === 'correct_go' || result === 'late' || result === 'hesitation',
+    result,
+    reactionMs: rt,
+    score: 0,
+    cueShownAt: 0,
+    pressedAt: rt,
+    roundIndex: 0,
+    inputSource: 'keyboard',
+  })
+
+  it('produces one row per cue id with correct counts and avg RT', () => {
+    const reps = [
+      make('steps_in', 'correct_go', 250),
+      make('steps_in', 'correct_go', 350),
+      make('steps_in', 'hesitation', 500),
+      make('steps_in', 'false_start', null),
+      make('fake_steps', 'correct_no_go', null),
+      make('fake_steps', 'false_start', 200),
+    ]
+    const rows = cueBreakdown(reps)
+    const steps = rows.find((r) => r.cueId === 'steps_in')
+    const fake = rows.find((r) => r.cueId === 'fake_steps')
+    expect(steps).toBeDefined()
+    expect(fake).toBeDefined()
+    expect(steps!.reps).toBe(4)
+    expect(steps!.correct).toBe(2)
+    expect(steps!.hesitations).toBe(1)
+    expect(steps!.falseStarts).toBe(1)
+    expect(steps!.avgRtMs).toBe(300)
+    expect(fake!.reps).toBe(2)
+    expect(fake!.correct).toBe(1)
+    expect(fake!.falseStarts).toBe(1)
+    expect(fake!.avgRtMs).toBeNull()
+  })
+
+  it('best10AvgRtMs averages the 10 fastest correct_go rts', () => {
+    const reps: RepRecord[] = []
+    for (let i = 1; i <= 15; i++) {
+      reps.push(make('steps_in', 'correct_go', i * 30))
+    }
+    const row = cueBreakdown(reps).find((r) => r.cueId === 'steps_in')!
+    // fastest 10 = 30, 60, 90, ..., 300 → mean = 165
+    expect(row.best10AvgRtMs).toBe(165)
+  })
+})
+
+describe('antiRhythmSignal', () => {
+  const make = (
+    cueId: CueDef['id'],
+    isGo: boolean,
+    result: RepRecord['result'],
+  ): RepRecord => ({
+    id: `r-${Math.random()}`,
+    sessionId: 's',
+    cueId,
+    isGo,
+    result,
+    reactionMs: null,
+    score: 0,
+    cueShownAt: 0,
+    pressedAt: null,
+    roundIndex: 0,
+    inputSource: 'keyboard',
+  })
+
+  it('returns no-pattern narrative for an empty or quiet stream', () => {
+    expect(antiRhythmSignal([]).narrative).toBe('No rhythm pattern detected.')
+    const calm = [
+      make('steps_in', true, 'correct_go'),
+      make('steps_in', true, 'correct_go'),
+      make('steps_in', true, 'correct_go'),
+    ]
+    expect(antiRhythmSignal(calm).narrative).toBe('No rhythm pattern detected.')
+  })
+
+  it('buckets reps by the prior consecutive-go streak length', () => {
+    // sequence: G, G, G, G(FS), N, G(FS), G, G, G(FS)
+    const reps = [
+      make('steps_in', true, 'correct_go'),       // streak before = 0
+      make('steps_in', true, 'correct_go'),       // streak before = 1
+      make('steps_in', true, 'correct_go'),       // streak before = 2
+      make('steps_in', true, 'false_start'),      // streak before = 3+
+      make('fake_steps', false, 'correct_no_go'), // resets streak
+      make('steps_in', true, 'false_start'),      // streak before = 0
+      make('steps_in', true, 'correct_go'),       // streak before = 1
+      make('steps_in', true, 'correct_go'),       // streak before = 2
+      make('steps_in', true, 'false_start'),      // streak before = 3+
+    ]
+    const stats = antiRhythmSignal(reps)
+    expect(stats.buckets['0']).toEqual({ falseStarts: 1, total: 2 })
+    expect(stats.buckets['1']).toEqual({ falseStarts: 0, total: 2 })
+    expect(stats.buckets['2']).toEqual({ falseStarts: 0, total: 2 })
+    expect(stats.buckets['3+']).toEqual({ falseStarts: 2, total: 2 })
+  })
+
+  it('emits a narrative when one bucket spikes above the global rate', () => {
+    const reps: RepRecord[] = []
+    // calm baseline: 9 go correct, then 3 in a row with one false_start
+    for (let i = 0; i < 9; i++) reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'false_start'))   // streak before = 9 → 3+
+    // a non-go break + another 3 go runs ending in false_start
+    reps.push(make('fake_steps', false, 'correct_no_go'))
+    reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'false_start'))   // streak before = 3 → 3+
+    reps.push(make('fake_steps', false, 'correct_no_go'))
+    reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'correct_go'))
+    reps.push(make('steps_in', true, 'false_start'))   // streak before = 3 → 3+
+    const stats = antiRhythmSignal(reps)
+    expect(stats.narrative).toMatch(/3\+ consecutive go cues/)
   })
 })
 

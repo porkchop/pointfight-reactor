@@ -3,9 +3,11 @@ import { listRecentSessions } from '../store/db'
 import { useSession } from '../store/session'
 import {
   DEFAULT_SETTINGS,
+  loadActiveProfile,
   loadSettings,
   type SettingsRecord,
 } from '../store/settings'
+import type { ProfileRecord } from '../store/profiles'
 import type { SessionRecord } from '../engine/types'
 
 interface IdleScreenProps {
@@ -16,31 +18,18 @@ export function IdleScreen({ onOpenSettings }: IdleScreenProps) {
   const start = useSession((s) => s.start)
   const [recent, setRecent] = useState<SessionRecord[]>([])
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
+  const [profile, setProfile] = useState<ProfileRecord | null>(null)
 
   useEffect(() => {
     void listRecentSessions(5).then(setRecent)
     void loadSettings().then(setSettings)
+    void loadActiveProfile().then(setProfile)
   }, [])
 
   function handleStart() {
     void requestFullscreen()
-    start(
-      {
-        rounds: settings.rounds,
-        workMs: settings.workMs,
-        restMs: settings.restMs,
-        preCueMinMs: settings.preCueMinMs,
-        preCueMaxMs: settings.preCueMaxMs,
-        penaltyCounterEnabled: settings.penaltyCounterEnabled,
-        perFalseStartPenalty: settings.perFalseStartPenalty,
-        perHesitationPenalty: settings.perHesitationPenalty,
-        distanceAxisEnabled: settings.distanceAxisEnabled,
-        audioToneEnabled: settings.audioToneEnabled,
-        textOverlayEnabled: settings.textOverlayEnabled,
-      },
-      undefined,
-      settings.inputSource,
-    )
+    if (!profile) return
+    start(profile.config, undefined, settings.inputSource)
   }
 
   return (
@@ -54,10 +43,17 @@ export function IdleScreen({ onOpenSettings }: IdleScreenProps) {
         </div>
       )}
 
+      {profile && (
+        <p className="active-profile">
+          Profile: <strong>{profile.name}</strong>
+        </p>
+      )}
+
       <button
         className="primary"
         type="button"
         onClick={handleStart}
+        disabled={!profile}
         autoFocus
       >
         Start drill

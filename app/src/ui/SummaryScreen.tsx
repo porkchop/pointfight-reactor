@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useSession, getSessionSummary } from '../store/session'
+import { antiRhythmSignal, cueBreakdown } from '../engine/drill'
 import { CUE_LIBRARY } from '../cues/library'
 import type { CueId } from '../engine/types'
 
@@ -13,22 +14,14 @@ export function SummaryScreen() {
   const cleared = useSession((s) => s.cleared)
 
   const summary = useMemo(() => getSessionSummary(reps), [reps])
+  const breakdown = useMemo(() => cueBreakdown(reps), [reps])
+  const rhythm = useMemo(() => antiRhythmSignal(reps), [reps])
 
-  const byCue = useMemo(() => {
-    const map = new Map<CueId, { reps: number; correct: number }>()
-    for (const cue of CUE_LIBRARY) {
-      map.set(cue.id, { reps: 0, correct: 0 })
-    }
-    for (const r of reps) {
-      const row = map.get(r.cueId)
-      if (!row) continue
-      row.reps++
-      if (r.result === 'correct_go' || r.result === 'correct_no_go') {
-        row.correct++
-      }
-    }
-    return map
-  }, [reps])
+  const breakdownById = useMemo(() => {
+    const m = new Map<CueId, (typeof breakdown)[number]>()
+    for (const row of breakdown) m.set(row.cueId, row)
+    return m
+  }, [breakdown])
 
   return (
     <div className="screen summary">
@@ -64,6 +57,11 @@ export function SummaryScreen() {
         />
       </div>
 
+      <div className="rhythm-panel" aria-label="anti-rhythm signal">
+        <h2>Rhythm pattern</h2>
+        <p>{rhythm.narrative}</p>
+      </div>
+
       <h2>By cue</h2>
       <table className="cue-table">
         <thead>
@@ -71,11 +69,17 @@ export function SummaryScreen() {
             <th>Cue</th>
             <th>Reps</th>
             <th>Correct</th>
+            <th>FS</th>
+            <th>Hes</th>
+            <th>Late</th>
+            <th>Avg RT</th>
+            <th>Best-10 RT</th>
           </tr>
         </thead>
         <tbody>
           {CUE_LIBRARY.map((cue) => {
-            const row = byCue.get(cue.id) ?? { reps: 0, correct: 0 }
+            const row = breakdownById.get(cue.id)
+            if (!row) return null
             return (
               <tr key={cue.id}>
                 <td>
@@ -84,6 +88,13 @@ export function SummaryScreen() {
                 </td>
                 <td>{row.reps}</td>
                 <td>{row.correct}</td>
+                <td>{row.falseStarts}</td>
+                <td>{row.hesitations}</td>
+                <td>{row.lateMisses}</td>
+                <td>{row.avgRtMs === null ? '—' : `${row.avgRtMs}`}</td>
+                <td>
+                  {row.best10AvgRtMs === null ? '—' : `${row.best10AvgRtMs}`}
+                </td>
               </tr>
             )
           })}
@@ -91,7 +102,11 @@ export function SummaryScreen() {
       </table>
 
       <div className="actions">
-        <button type="button" className="primary" onClick={() => start()}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => start(config, undefined, inputSource)}
+        >
           Start another session
         </button>
         <button type="button" className="link" onClick={() => reset()}>

@@ -1,159 +1,182 @@
-# Phase 3 decision memo — visuospatial cues + distance axis
+# Phase 4 decision memo — drill config + scoring refinement
 
-(Supersedes the Phase 2 memo. Prior memos preserved in git history.)
+(Supersedes the Phase 3 memo. Prior memos preserved in git history.)
 
 ## Goal
-Replace text cues with visual silhouettes/symbols, add the distance axis
-(far / mid / in-range) as a second decision dimension, and make the cue
-palette data-driven so new cues can be added without code changes.
+Make the engine configurable on a per-profile basis, tighten scoring so
+that "late" is an explicit, configurable threshold (not a side effect of
+the response window), surface a per-cue breakdown the athlete can act on,
+and add an anti-rhythm signal so the user can spot rhythm-anticipation
+patterns before competition.
 
-## Phase 3 acceptance criteria (unchanged from `docs/PHASES.md`)
+## Phase 4 acceptance criteria (unchanged from `docs/PHASES.md`)
 
-1. Each existing cue has an SVG silhouette/symbol with a short animation.
-2. Text labels render only as an optional learning overlay.
-3. Silhouette renders at three distance sizes: far / mid / in-range.
-4. Drill profiles can enable the distance axis — same cue at different
-   ranges maps to different correct responses.
-5. Optional continuous audio tone whose pitch tracks current rendered
-   distance.
-6. Cue palette and animations are data-driven (JSON or TS map) so new
-   cues can be added without code changes.
+1. User can create / edit / save drill profiles.
+2. Configurable per-profile: cue type set, delay range, late threshold,
+   hesitation threshold, response window, scoring weights, round structure,
+   distance axis on/off.
+3. Hesitation detection uses an explicit, configurable RT band.
+4. Choice-RT defaults: hesitation > 450 ms, late > 600 ms (tunable).
+5. Per-cue-type RT and error-rate breakdown in the session summary.
+6. Anti-rhythm detection: log false-start position in go/no-go sequences
+   and surface patterns (e.g. "you false-start most often after 3
+   consecutive go cues").
 
-## Non-goals (Phase 3)
-- Per-cue-type RT breakdown in summary (Phase 4).
-- Anti-rhythm detection (Phase 4).
-- Long-term analytics-over-sessions trends (Phase 5).
-- Real-photo or video clip cues (Phase 6).
-- Distance from a real depth source (webcam, sensor) — distance is
-  rendered, not measured.
+## Non-goals (Phase 4)
+- Multi-session trend reporting (Phase 5).
+- Taper mode profile generator (Phase 5).
+- Video opponent clips (Phase 6).
+- Webcam pose detection (Phase 7).
 
 ## Key decisions
 
-### D1. Silhouette style: simple high-contrast pictographs, not realistic figures
-The athlete needs the cue to be readable at a glance from across a gym.
-A photoreal silhouette would take a real illustrator and produce slower
-reads than a clean icon. We render each cue as a stylized pictograph —
-person-shaped, single accent color per action, ~60 lines of SVG max.
+### D1. Late as a first-class threshold, distinct from the response window
+Phase 1–3 conflated two concepts: the *response window* (max time the
+cue is on screen waiting for input) and *late* (a response that came in
+but past the choice-RT cutoff). The spec is explicit:
+- `late` = response after `late_threshold_ms` (default 600 ms)
+- `hesitation` = response between `hesitation_threshold_ms` (450) and
+  `late_threshold_ms` on a go cue.
 
-Tradeoff considered: detailed silhouettes look better in marketing but
-are slower to read under fatigue. The spec's "perception-action coupling"
-principle prefers clarity over realism. Phase 6 (video) handles realism.
+New `DrillConfig` field: `lateThresholdMs: number` (default 600).
+`responseWindowMs` (default 1200) still exists as the screen-hold
+timeout — if no press by then, the rep ends.
 
-### D2. Animation: CSS keyframes on SVG sub-elements, not SVG SMIL or runtime libraries
-- CSS `@keyframes` driving `transform` on specific SVG groups (leg lifts,
-  arm drops, body steps in, etc.).
-- No SMIL (deprecated in modern browsers for cross-platform parity).
-- No Lottie/Framer in this phase — adds dependency weight and a runtime
-  cost the spec does not need.
-- Each cue's animation triggers on mount; React re-mounts the component
-  on cue change via `key={cueId + repId}`.
+Updated classify rule for **go** cues:
+- press in [0, hesitationThresholdMs)              → `correct_go`
+- press in [hesitationThresholdMs, lateThresholdMs) → `hesitation`
+- press in [lateThresholdMs, responseWindowMs]      → `late`
+- no press by responseWindowMs                      → `late`
 
-### D3. Distance axis: per-rep distance, opt-in via config, conditional rule table
-- New `DrillConfig` field: `distanceAxisEnabled: boolean` (default false
-  — backward compatible with Phase 2).
-- When enabled, the engine picks a distance per rep (`'far' | 'mid' | 'in_range'`)
-  with uniform probability by default.
-- A cue's expected response when distance is on comes from
-  `cue.distanceResponses?.[distance]` if present, else falls back to
-  `cue.expectedResponse`. Cues that benefit from distance (e.g. a step-in
-  is a `jam_entry` at far range but a `stop_kick` at in-range) declare
-  the full table; cues that are distance-agnostic (e.g. `freezes`)
-  declare only the base response.
-- `RepRecord` gains an optional `distance?: Distance` field. Phase 2
-  reps lack it; the type is optional so reading old rows still works.
-- Classification logic is otherwise unchanged: go/no-go derivation,
-  hesitation/late thresholds, false-start rule all stay in place.
+For **no-go** cues, semantics unchanged: any in-window press → `false_start`.
 
-### D4. Distance rendering: CSS transform scale on a wrapper element
-- far → 0.45
-- mid → 0.7
-- in_range → 1.0
-- The same SVG renders in all three; only the wrapper's transform scales.
-- Smooth interpolation is **not** required for Phase 3 — distance is
-  set at cue-reveal time and held for the rep's duration.
+Validation: hesitationThresholdMs ≤ lateThresholdMs ≤ responseWindowMs.
 
-### D5. Audio tone: Web Audio OscillatorNode, optional, silent on init failure
-- New `audioToneEnabled: boolean` setting (default false — audio is
-  opt-in for a gym environment that may already be loud).
-- One `AudioContext` lazily constructed at first cue. A single
-  `OscillatorNode` started on cue reveal; frequency set from distance:
-  - far → 220 Hz
-  - mid → 440 Hz
-  - in_range → 660 Hz
-- Stopped on rep end (commitRep). Disconnects oscillator and creates a
-  fresh one each rep (oscillators are single-use per spec).
-- Gain node ramps in/out 30ms to avoid clicks.
-- If `AudioContext` construction throws (older Safari, restricted
-  contexts) the audio module silently no-ops; the rest of the app
-  works normally.
+### D2. Drill profiles as named DrillConfig records
+- New Dexie table (schema bump to v3): `profiles { id, name, config }`
+  plus an `activeProfileId` field on `SettingsRecord`.
+- A built-in `default` profile seeds on first boot (identity =
+  `DEFAULT_DRILL_CONFIG`). User can create, rename, edit, save-as-new,
+  duplicate, delete. Cannot delete the only remaining profile.
+- The IdleScreen's Start button uses the active profile.
+- The SettingsScreen becomes a profile editor: profile picker → form
+  edits live on the current profile → explicit Save commits.
 
-### D6. Cue palette is data-driven
-- New `app/src/cues/palette.ts` maps each cue id to:
-  ```
-  {
-    id, label, description, isGo, expectedResponse,
-    distanceResponses?: Record<Distance, ResponseId>,
-    Pictograph: React.FC,            // the SVG component
-    accentColor: string,             // CSS color (gym-correct / gym-warn etc.)
-  }
-  ```
-- `library.ts` re-exports the legacy `CUE_LIBRARY` / `GO_CUES` /
-  `NO_GO_CUES` shape (engine still consumes those for cue picking) but
-  the *visual* data lives in `palette.ts` so adding a cue means adding a
-  palette entry plus an engine-side entry — both purely additive.
-- Future Phase 4 drill profiles can subset the palette by id.
+Migration: existing `SettingsRecord` rows lack `activeProfileId`; on
+load, the settings module derives a profile from the existing settings
+and seeds it as the active "default" profile so the user's Phase 2+
+config carries forward.
 
-### D7. Where the new state lives
-- Engine: `pickDistance` pure function with injected RNG; `expectedResponseFor(cue, distance)` helper that consults the rule table.
-- Store: `distanceAxisEnabled`, `audioToneEnabled`, `textOverlayEnabled`
-  flow through `DrillConfig`; rep records optionally carry `distance`.
-- Settings UI: three new toggles in a new "Visuals" section.
-- UI: new `CueStage.tsx` component that renders the active cue's
-  Pictograph at the correct distance scale, with optional text overlay.
-- Audio: new `audio/distanceTone.ts` module (start/stop functions, lazy
-  AudioContext, no global state besides the singleton context).
+### D3. Cue subset per profile (`allowedCueIds`)
+- `DrillConfig.allowedCueIds: CueId[] | null` (null = all).
+- `pickNextCue` filters `CUE_LIBRARY` / `GO_CUES` / `NO_GO_CUES` by
+  `allowedCueIds` before sampling.
+- Validation: subset must contain at least one go cue *or* (if distance
+  axis is enabled and the subset contains any cue that has a go entry
+  at any distance) at least one cue capable of producing a go.
 
-### D8. Backward compatibility with Phase 1 + 2
-- `distance` is optional on `RepRecord`. Phase 1/2 reps lack it.
-- `distanceResponses` is optional on each palette entry.
-- `distanceAxisEnabled` defaults false; existing recent-sessions UI
-  behaves identically when the user has never toggled it on.
-- Text cue labels are preserved (the spec keeps them as an overlay)
-  so the recent-sessions display and summary by-cue table still work.
+For Phase 4 the simpler rule is enough: validation rejects an empty
+allowedCueIds and rejects a subset with no go cues when
+`distanceAxisEnabled` is false.
+
+### D4. Scoring weights as a configurable map
+- `DrillConfig.scoreWeights: Record<RepResult, number>` (default =
+  current SCORE_TABLE: correct_go +1, correct_no_go +1, late 0,
+  false_start −1, hesitation −2).
+- `classifyRep` consults the weights via the input (now plumbed through).
+- `summarize` uses the same weights via the per-rep `score` already
+  stored on `RepRecord`. No data migration needed.
+
+### D5. Per-cue summary breakdown — pure function returning a structured table
+- New pure helper `cueBreakdown(reps): CueBreakdownRow[]` producing
+  one row per observed cue id: `{ cueId, reps, correct, falseStarts,
+  hesitations, lateMisses, avgRtMs, best10AvgRtMs }`.
+- Best-10 = average of the 10 fastest `correct_go` RTs for that cue
+  (fewer if fewer correct reps).
+- Summary screen renders this as a sortable-by-defaults table replacing
+  the existing "By cue" table.
+- When the distance axis was active in the session, a secondary
+  `cueDistanceBreakdown(reps)` returns one row per `cueId × distance`,
+  used to render a compact accuracy heatmap (Phase 5 will polish).
+
+### D6. Anti-rhythm detector — windowed false-start rate
+- Pure function `antiRhythmSignal(reps): AntiRhythmStats`:
+  - For each rep that is a `false_start` on a go cue, count the number
+    of *consecutive* go cues immediately preceding (excluding the
+    current rep). Group counts 0, 1, 2, ≥3.
+  - Return: `{ falseStartsByPriorGoStreak: Record<0|1|2|3plus, { count, total }> }`.
+  - `total` is the count of go-cue reps whose preceding streak was
+    that length (denominator).
+- Summary screen shows the strongest signal as a short narrative line:
+  "False starts most often after 3+ consecutive go cues (X%)" if any
+  bucket's rate exceeds the global false-start rate by ≥1.5× and the
+  bucket has ≥3 reps. Otherwise: "No rhythm pattern detected."
+
+### D7. Where new state lives
+- Engine: `validateDrillConfig` extends to cover the new thresholds and
+  cue subset. `cueBreakdown` and `antiRhythmSignal` are pure helpers
+  alongside `summarize`.
+- Store: new `store/profiles.ts` for Dexie CRUD. Settings module gains
+  `activeProfileId` and a `loadActiveProfile()` helper.
+- UI: SettingsScreen becomes profile-aware; SummaryScreen renders the
+  new breakdown + anti-rhythm line.
+- Types: `RepResult` unchanged; `DrillConfig` gets three new fields
+  (lateThresholdMs, allowedCueIds, scoreWeights).
+
+### D8. Backward compatibility
+- Existing sessions still summarize correctly — `cueBreakdown` is
+  derived from `RepRecord.cueId` which all phases populate.
+- Settings migration: on load, if no `activeProfileId`, the module
+  builds a "default" profile from the current settings, persists it,
+  and points the user there.
+- DEFAULT_DRILL_CONFIG gains the new fields with defaults that match
+  Phase 3 behavior so existing tests keep passing without modification
+  (the new lateThresholdMs default of 600 *does* change classification
+  behavior — existing tests that exercise classifyRep with go cues at
+  RTs ≥ 600 ms will need to be re-evaluated; this is reviewed below).
 
 ## Risks and mitigations
-- **SVG complexity bloats bundle.** Mitigation: pictographs are ≤60 lines
-  of inline SVG each; ~480 lines total, well under 10kB after minification.
-- **Audio autoplay restrictions.** Mitigation: AudioContext is constructed
-  on first user gesture (Start drill click) — browsers permit audio after
-  a user gesture, before is unreliable. The drill start *is* a user gesture.
-- **Animation jank under heavy CSS.** Mitigation: animations target
-  `transform` only (GPU-composited). No layout-triggering properties.
-- **Distance-axis-on with cues that have no `distanceResponses`.**
-  Mitigation: fall back to the cue's base `expectedResponse`. Optional
-  warning in console if a cue lacks a distance table; not a runtime error.
+- **Late-threshold change reclassifies a band that was previously
+  "hesitation".** Mitigation: this is *the* point of the phase — the
+  spec is explicit. Verify existing classify tests are still correct
+  semantically after the rule change. Tests with hardcoded RT values
+  around the 600ms boundary may need updating.
+- **Profile schema bump may collide with users who already have a v2
+  database.** Mitigation: Dexie versioning is additive; v3 just adds
+  `profiles` and uses the existing `settings` row's new field. No
+  destructive migration.
+- **Anti-rhythm signal noisy with small sample sizes.** Mitigation:
+  require ≥3 reps per bucket and ≥1.5× lift over the global rate
+  before claiming a pattern.
+- **Empty `allowedCueIds` breaks pickNextCue.** Mitigation: validation
+  rejects the save; runtime defensively falls back to full library
+  with a console warning if somehow it slips through.
 
 ## Test strategy
-- **Engine**: extend `engine/drill.test.ts` with:
-  - `pickDistance` distribution check (uniform across far/mid/in-range)
-  - `expectedResponseFor` with and without `distanceResponses`
-- **Cue palette**: `cues/palette.test.ts` ensuring every CUE_LIBRARY entry
-  has a matching palette entry with a Pictograph component.
-- **Store**: extend `store/session.test.ts` with a rep stamped with
-  `distance` when `distanceAxisEnabled: true`.
-- **Settings**: round-trip the three new toggles.
-- **UI**: smoke-test that CueStage renders an SVG and the text overlay
-  visibility toggles correctly (Vitest + jsdom).
-- **Browser**: qa-playwright cycles through several reps with distance
-  axis on; verifies different scale classes; checks audio toggle does
-  not break the drill; takes screenshots of all three distance sizes.
+- **classifyRep**: add tests for the lateThreshold boundary (press at
+  599 → hesitation, press at 600 → late, press at 601 → late, press at
+  responseWindow → late).
+- **pickNextCue**: with `allowedCueIds: ['steps_in']`, the only
+  returned cue is `steps_in` (and goCueProbability=0 fails because
+  no no-go in subset → validate catches it).
+- **summarize / cueBreakdown**: produce expected rows for a mixed-cue
+  session.
+- **antiRhythmSignal**: deterministic sequence of go/no-go reps with
+  known prior streaks → expected bucket counts.
+- **Profiles store**: `fake-indexeddb` round-trip; load-then-save with
+  no rows seeds default; switching active profile persists.
+- **Browser**: qa-playwright exercises creating a new profile, editing
+  thresholds, running a drill against the profile, observing the new
+  per-cue breakdown in the summary, and seeing the anti-rhythm line.
 
 ## Rollback path
-Phase 3 lives under `app/`. Reverting the phase commit restores Phase 2
-behavior. No DB schema bump required (RepRecord.distance is optional).
+Phase 4 lives under `app/`. Reverting the phase commit restores Phase 3.
+Dexie v3 → v2 is *not* automatic, but v2-only data still loads because
+v3 schema is additive. Users who upgrade then downgrade will lose
+profiles but keep sessions/reps/settings.
 
-## Out-of-scope deferred to later phases
-- Per-cue-type RT/error breakdown in summary → Phase 4
-- Anti-rhythm detection → Phase 4
-- Multi-session analytics → Phase 5
-- Photoreal or video cues → Phase 6
+## Out-of-scope deferred
+- Cross-session trend analytics → Phase 5
+- Taper mode auto-generator → Phase 5
+- Video clips → Phase 6
+- Webcam pose detection → Phase 7

@@ -88,6 +88,7 @@ export interface DrillConfig {
   preCueMaxMs: number
   responseWindowMs: number
   hesitationThresholdMs: number
+  lateThresholdMs: number
   goCueProbability: number
   maxReps: number | null
   rounds: number
@@ -99,16 +100,27 @@ export interface DrillConfig {
   distanceAxisEnabled: boolean
   audioToneEnabled: boolean
   textOverlayEnabled: boolean
+  allowedCueIds: CueId[] | null
+  scoreWeights: Record<RepResult, number>
 }
 
 export const PRE_CUE_MIN_FLOOR_MS = 500
 export const PRE_CUE_MAX_CEILING_MS = 8000
+
+export const DEFAULT_SCORE_WEIGHTS: Record<RepResult, number> = {
+  correct_go: 1,
+  correct_no_go: 1,
+  late: 0,
+  false_start: -1,
+  hesitation: -2,
+}
 
 export const DEFAULT_DRILL_CONFIG: DrillConfig = {
   preCueMinMs: 1500,
   preCueMaxMs: 4000,
   responseWindowMs: 1200,
   hesitationThresholdMs: 450,
+  lateThresholdMs: 600,
   goCueProbability: 0.7,
   maxReps: null,
   rounds: 5,
@@ -120,12 +132,7 @@ export const DEFAULT_DRILL_CONFIG: DrillConfig = {
   distanceAxisEnabled: false,
   audioToneEnabled: false,
   textOverlayEnabled: false,
+  allowedCueIds: null,
+  scoreWeights: DEFAULT_SCORE_WEIGHTS,
 }
 
-export const SCORE_TABLE: Record<RepResult, number> = {
-  correct_go: 1,
-  correct_no_go: 1,
-  late: 0,
-  false_start: -1,
-  hesitation: -2,
-}

@@ -579,3 +579,40 @@ kbd {
   color: var(--gym-muted);
   margin: 0 0 1rem;
 }
+.active-profile {
+  color: var(--gym-muted);
+  margin: 0;
+  font-size: 1rem;
+}
+.profile-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.cue-subset-grid,
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem 1rem;
+}
+.score-grid label {
+  justify-content: space-between;
+}
+.rhythm-panel {
+  background: var(--gym-neutral);
+  border-left: 4px solid var(--gym-accent);
+  padding: 0.8rem 1.2rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+}
+.rhythm-panel h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gym-muted);
+}
+.rhythm-panel p {
+  margin: 0;
+  font-size: 1.1rem;
+}
