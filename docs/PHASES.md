@@ -7,13 +7,16 @@ delays, keyboard input, scoring, and local session history.
 (Unchanged — already shipped.)
 
 ## Phase 2: Physical Input + Round Structure  [PRIORITY — target days 1–3]
-Make every rep require a physical commitment, and put reps inside a workout.
+Make every rep require a physical commitment (foot pedal), and put reps
+inside a workout.
+
+Scope note: phone-as-sensor was descoped to Phase 2b (see `artifacts/decision-memo.md`
+and `artifacts/phase-update.json`). The foot pedal already provides the
+"real physical commitment" the spec demands; phone-as-sensor is a nice-to-have
+that requires its own WebRTC/companion-page infrastructure.
 
 Acceptance criteria:
-- USB foot pedal works as a configurable input (just maps to a key).
-- Phone-as-sensor mode: a companion page on a phone on local network sends
-  a "commit" event on accelerometer threshold (sharp forward step / punch
-  impulse). Pairing via QR code with local websocket or WebRTC DataChannel.
+- USB foot pedal works as a configurable input (rebindable commit key).
 - Keyboard input remains as a fallback, flagged in session metadata.
 - Session structure supports rounds: configurable work duration, rest
   duration, and round count. Default 2:00 / 1:00 / 5 rounds.
@@ -22,6 +25,21 @@ Acceptance criteria:
 - Pre-cue delay range upper bound configurable up to 8 s.
 - Optional penalty counter: false starts and hesitations add reps to a
   during-rest clear-list.
+
+## Phase 2b: Phone-as-Sensor  [post-Phase-3 unless ahead of schedule]
+Companion page on a phone on local network sends a "commit" event on
+accelerometer threshold (sharp forward step / punch impulse).
+
+Acceptance criteria:
+- Pairing via QR code with local WebSocket or WebRTC DataChannel.
+- Accelerometer threshold detection (sharp forward step / punch impulse).
+- Calibration screen (per-athlete threshold).
+- Session inputSource = 'phone'; flagged in metadata.
+
+Rationale for deprioritization: requires its own signaling
+infrastructure (no server in the project today) plus companion HTML
+and sensor calibration. Foot pedal + keyboard cover the
+"physical commitment" requirement for the 2-week training window.
 
 ## Phase 3: Visuospatial Cues + Distance Axis  [PRIORITY — target days 3–6]
 Replace text cues with animated silhouettes/symbols and add the distance

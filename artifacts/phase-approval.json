@@ -1,36 +1,29 @@
 {
-  "phase": "phase-1",
+  "phase": "phase-2",
   "approved": true,
-  "summary": "Local MVP cue trainer complete: Vite/React/TS app with fullscreen go/no-go drill, randomized cue + delay, keyboard (Space) input, per-rep reaction-time measurement, immediate feedback, session summary, and IndexedDB persistence via Dexie. Drill engine is a pure module with 16 unit tests; Zustand store has 8 orchestration tests; cue library has a smoke test (28 tests total, all green). Lint, tsc, and production build all pass. Pre-commit verify gate is wired (scripts/phasekit-verify.sh runs npm lint + typecheck + tests under app/). Browser-verified by qa-playwright against all 7 acceptance criteria from docs/PHASES.md plus the mid-drill-reload persistence path. Code-reviewer round 1 raised 3 blockers (stale session row on tab close, untested pre-cue press path, duplicated rep-build logic); all 3 fixed and re-QA'd.",
+  "summary": "Phase 2 (revised scope): round structure with configurable work/rest/round count (default 2:00/1:00/5), configurable commit key + foot-pedal/keyboard input source flag, continuous-motion pulse during pre-cue READY, pre-cue delay configurable up to 8s with validation, optional penalty counter feeding a during-rest clear-list. Phone-as-sensor descoped to Phase 2b (see phase-update.json + decision-memo.md). Engine grows two pure helpers (validateDrillConfig, pendingPenalties) with 11 new tests; store grows nextRound + clearPenalty actions + roundIndex/workEndAt/restEndAt/cleared/inputSource fields with 5 new transition tests; new settings module backed by a Dexie v2 settings store with 3 round-trip/defaults tests. 19 new tests added (47 total, all green). Lint/typecheck/build clean. Browser-verified by qa-playwright against all 6 retained acceptance criteria plus Phase 1 regression (zero console errors).",
   "decision_memo": "artifacts/decision-memo.md",
+  "phase_update": "artifacts/phase-update.json",
   "acceptance_criteria": [
-    { "criterion": "User can start a drill", "verified_by": "qa-playwright (Start button → trainer view)" },
-    { "criterion": "App presents randomized go/no-go cues", "verified_by": "qa-playwright observed 8 distinct cues across reps; pickNextCue distribution tested in drill.test.ts" },
-    { "criterion": "User can respond with keyboard", "verified_by": "qa-playwright pressed Space; window-level keydown listener in TrainerScreen.tsx:19-36" },
-    { "criterion": "App records reaction time", "verified_by": "engine classifyRep + qa-playwright observed integer ms on feedback" },
-    { "criterion": "App displays rep result immediately", "verified_by": "qa-playwright observed colored feedback screens (GO ✓, HOLD ✓, LATE, FALSE START, HESITATION)" },
-    { "criterion": "App summarizes the session", "verified_by": "qa-playwright observed Reps/Score/Correct/False-starts/Hesitations/Late/Avg tiles + per-cue table" },
-    { "criterion": "Session persists locally", "verified_by": "qa-playwright reloaded mid-drill; IndexedDB session row showed correct repCount and summary" }
+    { "criterion": "USB foot pedal works as configurable input (rebindable commit key)", "verified_by": "qa-playwright C1 — rebound to F; idle hint reads 'Press F to commit.'; pedals enumerate as keyboards so this exposes the configurable mapping" },
+    { "criterion": "Keyboard input remains as fallback, flagged in session metadata", "verified_by": "qa-playwright C2 — banner shown on idle when source=keyboard; summary screen labels 'Input source: keyboard' vs 'Input source: pedal'; persisted on SessionRecord.inputSource" },
+    { "criterion": "Session structure supports rounds (configurable work/rest/count)", "verified_by": "qa-playwright C3 (6 sub-checks) — HUD shows Round 1/2, work clock m:ss counts down, rest screen appears with rest clock, Skip rest advances to Round 2/2, end-of-final-round lands on Summary" },
+    { "criterion": "Continuous-motion indicator between cues", "verified_by": "qa-playwright C4 — .motion-pulse element visible during READY; screenshot 03-trainer-ready-pulse.png" },
+    { "criterion": "Pre-cue delay upper bound configurable up to 8s", "verified_by": "qa-playwright C5 — min=2000/max=8000 saved without error; max=9000 rejected with visible 'must be ≤ 8000ms' banner; validateDrillConfig unit tests cover boundary and inversion" },
+    { "criterion": "Optional penalty counter (false starts + hesitations → clear-list)", "verified_by": "qa-playwright C6 — one false-start press during pre-cue produced '1 penalty rep to clear' with 'Clear one' button; click drops to 'All clear'; pendingPenalties unit-tested for weights and clearing" }
   ],
   "gates": {
-    "testing": "28/28 vitest tests pass; engine, store, and cue library each have tests covering primary paths and identified risk paths (pre-cue press, response-window boundary, hesitation threshold).",
-    "dry": "Rep-record construction unified in commitRep helper (session.ts); session summary derived from reps in one place (engine summarize).",
-    "drift": "Phase 1 is greenfield against scaffold; no prior phase code to drift against.",
-    "planning": "decision-memo.md written (cross-layer + persistence schema triggered the planning gate).",
-    "verification_sprint": "n/a — first user-visible phase; no prior cumulative system to re-verify.",
-    "pre_commit_verify": "scripts/phasekit-verify.sh now runs npm lint + typecheck + tests under app/ and propagates failures; sentinel flipped to 1."
+    "testing": "47/47 vitest tests pass; 19 new tests cover validateDrillConfig (7), pendingPenalties (3), round transitions (4), penalty/inputSource stamping (2), settings persistence (3). Every new behavior has a primary-path test plus at least one edge case (boundary, final-round, missing-row).",
+    "dry": "Settings save uses { ...DEFAULT_DRILL_CONFIG, ...settings } so engine defaults are not re-encoded in the form. Penalty count is a pure derivation over the existing rep stream — no parallel rep store. Rep-record construction remains in a single commitRep helper.",
+    "drift": "Phase 1 patterns extended: DrillConfig + SessionRecord get new fields; engine helpers stay pure; store stays orchestration-only. SessionRecord new fields are optional so Phase 1 stored rows still read cleanly without migration.",
+    "planning": "decision-memo.md rewritten for Phase 2; planning gate triggered by cross-layer change (engine + store + persistence + UI) and persistence schema bump.",
+    "verification_sprint": "Phase 1 verification sprint ran before any Phase 2 code was added — 28/28 tests, lint, typecheck, build all green. Re-confirmed against Phase 1 user flow in qa-playwright R1/R2 (Esc → Summary, recent sessions list).",
+    "pre_commit_verify": "scripts/phasekit-verify.sh runs lint + typecheck + tests; same gate as Phase 1.",
+    "phase_split": "Phase 2 originally bundled phone-as-sensor (WebRTC + companion + accelerometer). That sub-scope was moved to a new Phase 2b — see artifacts/phase-update.json and docs/PHASES.md. Approved phase numbering (Phase 1) is unchanged."
   },
   "review": {
-    "code_reviewer_initial": "REQUEST CHANGES — 3 blockers + nits",
-    "fixes_applied": [
-      "B1: persistSession now invoked from commitRep on every rep so IndexedDB sessions row stays in sync with reps even if tab closes mid-drill",
-      "B2: classifyPreCuePress added with dedicated test; store calls it explicitly instead of the prior magic `at + 1` hack",
-      "B3: commitRep helper extracted; recordPress and finishWindow both delegate to it",
-      "N2: response-window boundary test added",
-      "N7: cue library smoke test added",
-      "cosmetic: Math.round on displayed reactionMs"
-    ],
-    "qa_playwright_final": "PASS — all 7 acceptance criteria + both post-fix verifications"
+    "code_reviewer": "APPROVE — no blocking issues. 6 non-blocking nits raised; top 3 applied (SettingsScreen.handleSave reuses DEFAULT_DRILL_CONFIG; acknowledgeFeedback added phase guard; RestScreen tick clears its own interval on hit zero).",
+    "qa_playwright": "PASS — all 6 acceptance criteria + 2 Phase 1 regressions verified across 10 screenshots; zero console errors. Evidence in artifacts/phase2-verify/."
   },
-  "suggested_commit_message": "phase-1: local MVP go/no-go reaction trainer"
+  "suggested_commit_message": "phase-2: rounds, configurable input, motion indicator, penalty counter"
 }

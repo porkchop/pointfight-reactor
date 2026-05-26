@@ -1,0 +1,20 @@
+{
+  "phase": "phase-2",
+  "kind": "scope-split",
+  "summary": "Phase 2 bundled seven acceptance criteria; phone-as-sensor required substantial unrelated infrastructure (WebRTC signaling, companion page, accelerometer calibration). Split into Phase 2 (round structure + configurable input + motion indicator + delay extension + penalty counter + keyboard-fallback flag) and a new Phase 2b (phone-as-sensor, deferred to after Phase 3).",
+  "moved_from_phase_2_to_phase_2b": [
+    "Phone-as-sensor mode: companion page on phone sends commit event on accelerometer threshold, paired via QR code with local websocket or WebRTC DataChannel."
+  ],
+  "retained_in_phase_2": [
+    "USB foot pedal works as configurable input (rebindable commit key)",
+    "Keyboard input remains as fallback, flagged in session metadata",
+    "Session structure supports rounds: configurable work / rest / round count (default 2:00 / 1:00 / 5)",
+    "Continuous-motion indicator between cues",
+    "Pre-cue delay upper bound configurable up to 8 s",
+    "Optional penalty counter: false starts + hesitations add reps to during-rest clear-list"
+  ],
+  "rationale": "The foot pedal already satisfies the spec's 'physical commitment, not keyboard tap from seated position' requirement. Phone-as-sensor is additive and uncertain (no server in project today). Splitting keeps Phase 2 shippable inside the athlete's 2-week competition window while preserving the original Phase 2b work for a follow-on phase.",
+  "approved_phase_numbering_unchanged": true,
+  "phase_1_status": "still approved (artifacts/phase-approval.json retained)",
+  "next_action": "Implement revised Phase 2 scope; write artifacts/phase-approval.json with phase=phase-2 when accepted."
+}

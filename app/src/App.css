@@ -179,12 +179,27 @@ kbd {
   color: var(--gym-muted);
   text-transform: uppercase;
 }
-.ready .dot {
+.ready .dot,
+.motion-pulse {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   background: var(--gym-muted);
   animation: pulse 1.4s ease-in-out infinite;
+}
+.motion-pulse {
+  width: 96px;
+  height: 96px;
+  background: radial-gradient(
+    circle at center,
+    rgba(56, 189, 248, 0.55) 0%,
+    rgba(56, 189, 248, 0) 70%
+  );
+  animation: motionBounce 545ms ease-in-out infinite;
+}
+@keyframes motionBounce {
+  0%, 100% { transform: scale(1); opacity: 0.45; }
+  50% { transform: scale(1.35); opacity: 0.9; }
 }
 
 .cue-label {
@@ -329,4 +344,152 @@ kbd {
   border-radius: 8px;
   margin-bottom: 1.2rem;
   font-weight: 600;
+}
+.banner.info {
+  background: var(--gym-neutral);
+  color: var(--gym-fg);
+  border: 1px solid var(--gym-accent);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+.banner.warn ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+/* ---- HUD ---- */
+.hud-clock,
+.hud-penalties {
+  font-family: ui-monospace, monospace;
+  color: var(--gym-fg);
+  font-size: 1.1rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.hud-penalties {
+  color: var(--gym-warn);
+  font-weight: 700;
+}
+
+/* ---- Rest screen ---- */
+.screen.rest {
+  position: relative;
+  background: #0b1220;
+}
+.screen.rest .stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.screen.rest h2 {
+  font-size: clamp(3rem, 8vw, 6rem);
+  letter-spacing: 8px;
+  margin: 0;
+  color: var(--gym-muted);
+}
+.rest-clock {
+  font-size: clamp(4rem, 14vw, 10rem);
+  font-family: ui-monospace, monospace;
+  font-weight: 800;
+  color: var(--gym-accent);
+  line-height: 1;
+}
+.penalty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--gym-neutral);
+  padding: 1.4rem 2rem;
+  border-radius: 12px;
+}
+.penalty-count {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+}
+.muted {
+  color: var(--gym-muted);
+  margin: 0;
+}
+
+/* ---- Settings screen ---- */
+.screen.settings {
+  align-items: stretch;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  gap: 1.2rem;
+}
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.settings-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+.settings-section {
+  background: var(--gym-neutral);
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.settings-section h2 {
+  margin: 0;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gym-muted);
+}
+.settings-section label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1rem;
+}
+.settings-section input[type='number'],
+.settings-section select {
+  background: #0b1220;
+  color: var(--gym-fg);
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 1rem;
+  min-width: 140px;
+}
+.settings-section .hint {
+  color: var(--gym-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+.settings-section .checkbox-row {
+  justify-content: flex-start;
+  gap: 0.6rem;
+}
+.rebind-button {
+  background: #0b1220;
+  color: var(--gym-fg);
+  border: 1px solid var(--gym-accent);
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-family: ui-monospace, monospace;
+}
+.rebind-prompt {
+  color: var(--gym-accent);
+  font-style: italic;
+}
+.summary-meta {
+  color: var(--gym-muted);
+  margin: 0 0 1rem;
 }

@@ -113,4 +113,85 @@ describe('useSession store', () => {
     useSession.getState().acknowledgeFeedback()
     expect(useSession.getState().phase).toBe('ended')
   })
+
+  it('acknowledgeFeedback transitions to rest when work time is up and more rounds remain', () => {
+    useSession.getState().start(
+      { goCueProbability: 1, rounds: 2, workMs: 0, restMs: 1000 },
+      mulberry32(9),
+    )
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 50)
+    useSession.getState().acknowledgeFeedback()
+    const s = useSession.getState()
+    expect(s.phase).toBe('rest')
+    expect(s.restEndAt).not.toBeNull()
+    expect(s.roundIndex).toBe(0)
+  })
+
+  it('nextRound from rest increments roundIndex and starts new work period', () => {
+    useSession.getState().start(
+      { goCueProbability: 1, rounds: 3, workMs: 0, restMs: 0 },
+      mulberry32(10),
+    )
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 50)
+    useSession.getState().acknowledgeFeedback()
+    expect(useSession.getState().phase).toBe('rest')
+
+    useSession.getState().nextRound()
+    const s = useSession.getState()
+    expect(s.roundIndex).toBe(1)
+    expect(s.phase).toBe('waiting')
+    expect(s.restEndAt).toBeNull()
+    expect(s.workEndAt).not.toBeNull()
+  })
+
+  it('acknowledgeFeedback after final round ends the drill instead of resting', () => {
+    useSession.getState().start(
+      { goCueProbability: 1, rounds: 1, workMs: 0, restMs: 1000 },
+      mulberry32(11),
+    )
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 50)
+    useSession.getState().acknowledgeFeedback()
+    expect(useSession.getState().phase).toBe('ended')
+  })
+
+  it('stamps roundIndex and inputSource on each rep', () => {
+    useSession.getState().start(
+      { goCueProbability: 1, rounds: 2, workMs: 0, restMs: 0 },
+      mulberry32(12),
+      'pedal',
+    )
+    useSession.getState().revealCue()
+    let cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 50)
+    expect(useSession.getState().reps.at(-1)?.roundIndex).toBe(0)
+    expect(useSession.getState().reps.at(-1)?.inputSource).toBe('pedal')
+
+    useSession.getState().acknowledgeFeedback()
+    useSession.getState().nextRound()
+    useSession.getState().revealCue()
+    cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 50)
+    expect(useSession.getState().reps.at(-1)?.roundIndex).toBe(1)
+  })
+
+  it('clearPenalty increments cleared and persists', async () => {
+    useSession.getState().start({}, mulberry32(13))
+    expect(useSession.getState().cleared).toBe(0)
+    useSession.getState().clearPenalty()
+    useSession.getState().clearPenalty()
+    expect(useSession.getState().cleared).toBe(2)
+
+    await new Promise((r) => setTimeout(r, 0))
+    const db = getDb()
+    if (!db) throw new Error('db unavailable')
+    const sessionId = useSession.getState().sessionId as string
+    const stored = await db.sessions.get(sessionId)
+    expect(stored?.cleared).toBe(2)
+  })
 })

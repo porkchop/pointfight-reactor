@@ -8,6 +8,9 @@ export function SummaryScreen() {
   const reset = useSession((s) => s.reset)
   const start = useSession((s) => s.start)
   const persistError = useSession((s) => s.persistError)
+  const inputSource = useSession((s) => s.inputSource)
+  const config = useSession((s) => s.config)
+  const cleared = useSession((s) => s.cleared)
 
   const summary = useMemo(() => getSessionSummary(reps), [reps])
 
@@ -36,6 +39,13 @@ export function SummaryScreen() {
           Storage unavailable: {persistError}. Session was kept in memory only.
         </div>
       )}
+
+      <p className="summary-meta">
+        Input source: <strong>{inputSource}</strong>
+        {config.penaltyCounterEnabled && (
+          <> · Cleared {cleared} penalty rep{cleared === 1 ? '' : 's'}</>
+        )}
+      </p>
 
       <div className="stats">
         <Stat label="Reps" value={summary.reps} />

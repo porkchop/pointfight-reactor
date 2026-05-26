@@ -12,6 +12,7 @@ import {
   DEFAULT_DRILL_CONFIG,
   type CueDef,
   type DrillConfig,
+  type InputSource,
   type RepRecord,
   type SessionRecord,
 } from '../engine/types'
@@ -22,6 +23,7 @@ export type DrillPhase =
   | 'waiting'
   | 'showing'
   | 'feedback'
+  | 'rest'
   | 'ended'
 
 interface RepInFlight {
@@ -46,13 +48,24 @@ interface SessionState {
   reps: RepRecord[]
   persistError: string | null
   rng: RNG
+  inputSource: InputSource
+  roundIndex: number
+  workEndAt: number | null
+  restEndAt: number | null
+  cleared: number
 
-  start: (overrides?: Partial<DrillConfig>, rng?: RNG) => void
+  start: (
+    overrides?: Partial<DrillConfig>,
+    rng?: RNG,
+    inputSource?: InputSource,
+  ) => void
   beginRep: () => void
   revealCue: () => void
   recordPress: (at: number) => void
   finishWindow: () => void
   acknowledgeFeedback: () => void
+  nextRound: () => void
+  clearPenalty: () => void
   stop: () => void
   reset: () => void
 }
@@ -65,19 +78,22 @@ function newId(): string {
 }
 
 export const useSession = create<SessionState>((set, get) => {
-  function persistSession(
-    sessionId: string,
-    startedAt: number,
-    endedAt: number | null,
-    reps: RepRecord[],
-  ): void {
+  function persistSession(endedAt: number | null): void {
+    const state = get()
+    if (!state.sessionId || state.sessionStartedAt === null) return
     const record: SessionRecord = {
-      id: sessionId,
-      startedAt,
+      id: state.sessionId,
+      startedAt: state.sessionStartedAt,
       endedAt,
       drillType: 'first_beat_go_no_go',
-      repCount: reps.length,
-      summary: summarize(reps),
+      repCount: state.reps.length,
+      summary: summarize(state.reps),
+      inputSource: state.inputSource,
+      rounds: state.config.rounds,
+      workMs: state.config.workMs,
+      restMs: state.config.restMs,
+      cleared: state.cleared,
+      penaltyCounterEnabled: state.config.penaltyCounterEnabled,
     }
     void saveSession(record).catch((err) => {
       set({ persistError: (err as Error).message })
@@ -102,6 +118,8 @@ export const useSession = create<SessionState>((set, get) => {
       score: classification.score,
       cueShownAt,
       pressedAt,
+      roundIndex: state.roundIndex,
+      inputSource: state.inputSource,
     }
     void saveRep(rep)
     const nextReps = [...state.reps, rep]
@@ -110,7 +128,7 @@ export const useSession = create<SessionState>((set, get) => {
       feedback: { rep, cue },
       reps: nextReps,
     })
-    persistSession(state.sessionId, state.sessionStartedAt, null, nextReps)
+    persistSession(null)
   }
 
   return {
@@ -123,8 +141,13 @@ export const useSession = create<SessionState>((set, get) => {
     reps: [],
     persistError: null,
     rng: defaultRng,
+    inputSource: 'keyboard',
+    roundIndex: 0,
+    workEndAt: null,
+    restEndAt: null,
+    cleared: 0,
 
-    start: (overrides, rng) => {
+    start: (overrides, rng, inputSource) => {
       const config = { ...DEFAULT_DRILL_CONFIG, ...overrides }
       const sessionId = newId()
       const startedAt = Date.now()
@@ -138,8 +161,13 @@ export const useSession = create<SessionState>((set, get) => {
         reps: [],
         persistError: null,
         rng: rng ?? defaultRng,
+        inputSource: inputSource ?? 'keyboard',
+        roundIndex: 0,
+        workEndAt: performance.now() + config.workMs,
+        restEndAt: null,
+        cleared: 0,
       })
-      persistSession(sessionId, startedAt, null, [])
+      persistSession(null)
       get().beginRep()
     },
 
@@ -203,20 +231,61 @@ export const useSession = create<SessionState>((set, get) => {
     },
 
     acknowledgeFeedback: () => {
-      const { config, reps } = get()
+      const { phase, config, reps, roundIndex, workEndAt } = get()
+      if (phase !== 'feedback') return
       if (config.maxReps !== null && reps.length >= config.maxReps) {
         get().stop()
+        return
+      }
+      const workExpired =
+        workEndAt !== null && performance.now() >= workEndAt
+      if (workExpired) {
+        const isFinalRound = roundIndex >= config.rounds - 1
+        if (isFinalRound) {
+          get().stop()
+          return
+        }
+        set({
+          phase: 'rest',
+          current: null,
+          feedback: null,
+          restEndAt: performance.now() + config.restMs,
+        })
         return
       }
       get().beginRep()
     },
 
-    stop: () => {
-      const { sessionId, sessionStartedAt, reps } = get()
-      if (sessionId && sessionStartedAt !== null) {
-        persistSession(sessionId, sessionStartedAt, Date.now(), reps)
+    nextRound: () => {
+      const { phase, roundIndex, config } = get()
+      if (phase !== 'rest') return
+      const next = roundIndex + 1
+      if (next >= config.rounds) {
+        get().stop()
+        return
       }
-      set({ phase: 'ended', current: null })
+      set({
+        roundIndex: next,
+        workEndAt: performance.now() + config.workMs,
+        restEndAt: null,
+      })
+      get().beginRep()
+    },
+
+    clearPenalty: () => {
+      const { cleared } = get()
+      set({ cleared: cleared + 1 })
+      persistSession(null)
+    },
+
+    stop: () => {
+      persistSession(Date.now())
+      set({
+        phase: 'ended',
+        current: null,
+        workEndAt: null,
+        restEndAt: null,
+      })
     },
 
     reset: () => {
@@ -228,6 +297,10 @@ export const useSession = create<SessionState>((set, get) => {
         feedback: null,
         reps: [],
         persistError: null,
+        roundIndex: 0,
+        workEndAt: null,
+        restEndAt: null,
+        cleared: 0,
       })
     },
   }

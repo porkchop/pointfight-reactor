@@ -1,35 +1,72 @@
 import { useEffect, useState } from 'react'
 import { listRecentSessions } from '../store/db'
 import { useSession } from '../store/session'
+import {
+  DEFAULT_SETTINGS,
+  loadSettings,
+  type SettingsRecord,
+} from '../store/settings'
 import type { SessionRecord } from '../engine/types'
 
-export function IdleScreen() {
+interface IdleScreenProps {
+  onOpenSettings: () => void
+}
+
+export function IdleScreen({ onOpenSettings }: IdleScreenProps) {
   const start = useSession((s) => s.start)
   const [recent, setRecent] = useState<SessionRecord[]>([])
+  const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
 
   useEffect(() => {
     void listRecentSessions(5).then(setRecent)
+    void loadSettings().then(setSettings)
   }, [])
+
+  function handleStart() {
+    void requestFullscreen()
+    start(
+      {
+        rounds: settings.rounds,
+        workMs: settings.workMs,
+        restMs: settings.restMs,
+        preCueMinMs: settings.preCueMinMs,
+        preCueMaxMs: settings.preCueMaxMs,
+        penaltyCounterEnabled: settings.penaltyCounterEnabled,
+        perFalseStartPenalty: settings.perFalseStartPenalty,
+        perHesitationPenalty: settings.perHesitationPenalty,
+      },
+      undefined,
+      settings.inputSource,
+    )
+  }
 
   return (
     <div className="screen idle">
       <h1>PointFight Reactor</h1>
       <p className="subtitle">First-beat go / no-go drill</p>
 
+      {settings.inputSource === 'keyboard' && (
+        <div className="banner info">
+          Keyboard mode — foot pedal recommended for live drilling.
+        </div>
+      )}
+
       <button
         className="primary"
         type="button"
-        onClick={() => {
-          void requestFullscreen()
-          start()
-        }}
+        onClick={handleStart}
         autoFocus
       >
         Start drill
       </button>
       <p className="hint">
-        Press <kbd>Space</kbd> to commit. Press <kbd>Esc</kbd> to stop.
+        Press <kbd>{settings.commitKeyLabel}</kbd> to commit. Press{' '}
+        <kbd>Esc</kbd> to stop.
       </p>
+
+      <button type="button" className="link" onClick={onOpenSettings}>
+        Settings
+      </button>
 
       {recent.length > 0 && (
         <div className="recent">
@@ -44,6 +81,7 @@ export function IdleScreen() {
                   {s.repCount} reps · score {s.summary.score}
                   {s.summary.avgReactionMs !== null &&
                     ` · ${s.summary.avgReactionMs}ms avg`}
+                  {s.inputSource && ` · ${s.inputSource}`}
                 </span>
               </li>
             ))}

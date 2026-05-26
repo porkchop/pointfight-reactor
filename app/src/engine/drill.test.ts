@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyPreCuePress,
   classifyRep,
+  pendingPenalties,
   pickNextCue,
   pickPreCueDelayMs,
   summarize,
+  validateDrillConfig,
 } from './drill'
 import { mulberry32 } from './rng'
 import { DEFAULT_DRILL_CONFIG, type RepRecord } from './types'
@@ -223,6 +225,8 @@ describe('summarize', () => {
     score,
     cueShownAt: 0,
     pressedAt: reactionMs,
+    roundIndex: 0,
+    inputSource: 'keyboard',
   })
 
   it('aggregates rep counts and average reaction time', () => {
@@ -249,5 +253,100 @@ describe('summarize', () => {
     expect(
       summarize([makeRep('correct_no_go', null, 1)]).avgReactionMs,
     ).toBeNull()
+  })
+})
+
+describe('validateDrillConfig', () => {
+  it('accepts the default config', () => {
+    expect(validateDrillConfig(DEFAULT_DRILL_CONFIG)).toEqual([])
+  })
+
+  it('rejects preCueMinMs below the floor', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      preCueMinMs: 100,
+    })
+    expect(errs.map((e) => e.field)).toContain('preCueMinMs')
+  })
+
+  it('rejects preCueMaxMs above the 8s ceiling', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      preCueMaxMs: 9000,
+    })
+    expect(errs.map((e) => e.field)).toContain('preCueMaxMs')
+  })
+
+  it('accepts preCueMaxMs at the 8s ceiling', () => {
+    expect(
+      validateDrillConfig({ ...DEFAULT_DRILL_CONFIG, preCueMaxMs: 8000 }),
+    ).toEqual([])
+  })
+
+  it('rejects min > max', () => {
+    const errs = validateDrillConfig({
+      ...DEFAULT_DRILL_CONFIG,
+      preCueMinMs: 5000,
+      preCueMaxMs: 2000,
+    })
+    expect(errs.map((e) => e.field)).toContain('preCueMaxMs')
+  })
+
+  it('rejects zero rounds', () => {
+    const errs = validateDrillConfig({ ...DEFAULT_DRILL_CONFIG, rounds: 0 })
+    expect(errs.map((e) => e.field)).toContain('rounds')
+  })
+
+  it('rejects sub-1s work duration', () => {
+    const errs = validateDrillConfig({ ...DEFAULT_DRILL_CONFIG, workMs: 500 })
+    expect(errs.map((e) => e.field)).toContain('workMs')
+  })
+
+  it('rejects negative rest duration', () => {
+    const errs = validateDrillConfig({ ...DEFAULT_DRILL_CONFIG, restMs: -1 })
+    expect(errs.map((e) => e.field)).toContain('restMs')
+  })
+})
+
+describe('pendingPenalties', () => {
+  const baseRep: Omit<RepRecord, 'result' | 'score'> = {
+    id: 'x',
+    sessionId: 's',
+    cueId: 'steps_in',
+    isGo: true,
+    reactionMs: null,
+    cueShownAt: 0,
+    pressedAt: null,
+    roundIndex: 0,
+    inputSource: 'keyboard',
+  }
+  const rep = (result: RepRecord['result']): RepRecord => ({
+    ...baseRep,
+    result,
+    score: 0,
+  })
+
+  it('returns 0 with no reps', () => {
+    expect(pendingPenalties([], 1, 1, 0)).toBe(0)
+  })
+
+  it('counts false starts and hesitations with per-event weights', () => {
+    const reps = [
+      rep('false_start'),
+      rep('false_start'),
+      rep('hesitation'),
+      rep('correct_go'),
+      rep('late'),
+      rep('correct_no_go'),
+    ]
+    expect(pendingPenalties(reps, 1, 1, 0)).toBe(3)
+    expect(pendingPenalties(reps, 2, 1, 0)).toBe(5)
+    expect(pendingPenalties(reps, 1, 3, 0)).toBe(5)
+  })
+
+  it('subtracts cleared and never returns below zero', () => {
+    const reps = [rep('false_start'), rep('hesitation')]
+    expect(pendingPenalties(reps, 1, 1, 1)).toBe(1)
+    expect(pendingPenalties(reps, 1, 1, 5)).toBe(0)
   })
 })

@@ -1,0 +1,77 @@
+{
+  "results": {
+    "C1_commit_key_rebind": {
+      "pass": true,
+      "reason": "idle hint = \"Press F to commit. Press Esc to stop.\""
+    },
+    "C2a_keyboard_banner": {
+      "pass": true,
+      "reason": "banner = \"Keyboard mode — foot pedal recommended for live drilling.\""
+    },
+    "C5a_precue_8000_accepted": {
+      "pass": true,
+      "reason": "min=2000 max=8000 saved without validation error"
+    },
+    "C5b_precue_9000_rejected": {
+      "pass": true,
+      "reason": "stillOnSettings=true, error=\"preCueMaxMs: must be ≤ 8000ms\""
+    },
+    "C3a_round_1_of_2": {
+      "pass": true,
+      "reason": "HUD = \"Round 1/2 | Rep 1 | 0:03 | Stop (Esc)\""
+    },
+    "C3b_work_clock_mss": {
+      "pass": true,
+      "reason": "clock = \"0:03\""
+    },
+    "C4_motion_pulse": {
+      "pass": true,
+      "reason": ".motion-pulse visible during READY"
+    },
+    "C3c_rest_transition": {
+      "pass": true,
+      "reason": "restVisible=true, summaryVisible=false"
+    },
+    "C3d_rest_clock_mss": {
+      "pass": true,
+      "reason": "rest clock = \"0:02\""
+    },
+    "C3e_round_2_of_2": {
+      "pass": true,
+      "reason": "HUD round 2 = \"Round 2/2 | Rep 5 | 0:04 | Stop (Esc)\""
+    },
+    "C3f_summary_after_round_2": {
+      "pass": true,
+      "reason": "summary visible = true"
+    },
+    "C2b_summary_input_keyboard": {
+      "pass": true,
+      "reason": "summary meta = \"Input source: keyboard\""
+    },
+    "C2c_banner_hidden_when_pedal": {
+      "pass": true,
+      "reason": "banner visible when pedal = false"
+    },
+    "C2d_summary_input_pedal": {
+      "pass": true,
+      "reason": "summary meta = \"Input source: pedal\""
+    },
+    "C6a_penalty_panel_shown": {
+      "pass": true,
+      "reason": "panel = \"1 penalty rep to clear  Clear one\""
+    },
+    "C6b_penalty_clear_one": {
+      "pass": true,
+      "reason": "panel after clear = \"0 penalty reps to clear  All clear\""
+    },
+    "R1_summary_after_esc": {
+      "pass": true,
+      "reason": "summary visible after Esc = true"
+    },
+    "R2_recent_sessions_list": {
+      "pass": true,
+      "reason": "recent visible=true, items=4"
+    }
+  },
+  "consoleErrors": []
+}

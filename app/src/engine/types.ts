@@ -31,6 +31,8 @@ export type RepResult =
   | 'false_start'
   | 'hesitation'
 
+export type InputSource = 'keyboard' | 'pedal'
+
 export interface RepRecord {
   id: string
   sessionId: string
@@ -41,6 +43,8 @@ export interface RepRecord {
   score: number
   cueShownAt: number
   pressedAt: number | null
+  roundIndex: number
+  inputSource: InputSource
 }
 
 export interface SessionSummary {
@@ -60,6 +64,12 @@ export interface SessionRecord {
   drillType: 'first_beat_go_no_go'
   repCount: number
   summary: SessionSummary
+  inputSource?: InputSource
+  rounds?: number
+  workMs?: number
+  restMs?: number
+  cleared?: number
+  penaltyCounterEnabled?: boolean
 }
 
 export interface DrillConfig {
@@ -69,7 +79,16 @@ export interface DrillConfig {
   hesitationThresholdMs: number
   goCueProbability: number
   maxReps: number | null
+  rounds: number
+  workMs: number
+  restMs: number
+  penaltyCounterEnabled: boolean
+  perFalseStartPenalty: number
+  perHesitationPenalty: number
 }
+
+export const PRE_CUE_MIN_FLOOR_MS = 500
+export const PRE_CUE_MAX_CEILING_MS = 8000
 
 export const DEFAULT_DRILL_CONFIG: DrillConfig = {
   preCueMinMs: 1500,
@@ -78,6 +97,12 @@ export const DEFAULT_DRILL_CONFIG: DrillConfig = {
   hesitationThresholdMs: 450,
   goCueProbability: 0.7,
   maxReps: null,
+  rounds: 5,
+  workMs: 120_000,
+  restMs: 60_000,
+  penaltyCounterEnabled: false,
+  perFalseStartPenalty: 1,
+  perHesitationPenalty: 1,
 }
 
 export const SCORE_TABLE: Record<RepResult, number> = {

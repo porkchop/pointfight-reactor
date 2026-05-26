@@ -1,15 +1,22 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { RepRecord, SessionRecord } from '../engine/types'
+import type { SettingsRecord } from './settings-types'
 
 export class ReactorDB extends Dexie {
   sessions!: EntityTable<SessionRecord, 'id'>
   reps!: EntityTable<RepRecord, 'id'>
+  settings!: EntityTable<SettingsRecord, 'id'>
 
   constructor() {
     super('pointfight-reactor')
     this.version(1).stores({
       sessions: 'id, startedAt',
       reps: 'id, sessionId, cueId',
+    })
+    this.version(2).stores({
+      sessions: 'id, startedAt',
+      reps: 'id, sessionId, cueId',
+      settings: 'id',
     })
   }
 }

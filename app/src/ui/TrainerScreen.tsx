@@ -1,15 +1,24 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from '../store/session'
+import { pendingPenalties } from '../engine/drill'
 import type { RepResult } from '../engine/types'
+import { RestScreen } from './RestScreen'
 
 const FEEDBACK_HOLD_MS = 1000
 
-export function TrainerScreen() {
+interface TrainerScreenProps {
+  commitKeyCode: string
+}
+
+export function TrainerScreen({ commitKeyCode }: TrainerScreenProps) {
   const phase = useSession((s) => s.phase)
   const current = useSession((s) => s.current)
   const feedback = useSession((s) => s.feedback)
   const config = useSession((s) => s.config)
   const reps = useSession((s) => s.reps)
+  const roundIndex = useSession((s) => s.roundIndex)
+  const workEndAt = useSession((s) => s.workEndAt)
+  const cleared = useSession((s) => s.cleared)
   const revealCue = useSession((s) => s.revealCue)
   const recordPress = useSession((s) => s.recordPress)
   const finishWindow = useSession((s) => s.finishWindow)
@@ -19,7 +28,7 @@ export function TrainerScreen() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
-      if (e.code === 'Space') {
+      if (e.code === commitKeyCode) {
         e.preventDefault()
         if (phase === 'waiting' || phase === 'showing') {
           recordPress(performance.now())
@@ -32,7 +41,7 @@ export function TrainerScreen() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, recordPress, acknowledgeFeedback, stop])
+  }, [phase, commitKeyCode, recordPress, acknowledgeFeedback, stop])
 
   useEffect(() => {
     if (phase !== 'waiting' || !current || current.cueShownAt !== null) return
@@ -52,7 +61,28 @@ export function TrainerScreen() {
     return () => window.clearTimeout(timer)
   }, [phase, acknowledgeFeedback])
 
+  const [now, setNow] = useState<number>(() => performance.now())
+  useEffect(() => {
+    if (workEndAt === null) return
+    const interval = window.setInterval(() => setNow(performance.now()), 250)
+    return () => window.clearInterval(interval)
+  }, [workEndAt])
+  const workSecondsRemaining =
+    workEndAt === null ? null : Math.max(0, Math.ceil((workEndAt - now) / 1000))
+
+  if (phase === 'rest') {
+    return <RestScreen />
+  }
+
   const repsDone = reps.length
+  const penalties = config.penaltyCounterEnabled
+    ? pendingPenalties(
+        reps,
+        config.perFalseStartPenalty,
+        config.perHesitationPenalty,
+        cleared,
+      )
+    : 0
 
   return (
     <div
@@ -61,7 +91,18 @@ export function TrainerScreen() {
       }`}
     >
       <header className="hud">
+        <span>
+          Round {roundIndex + 1}/{config.rounds}
+        </span>
         <span>Rep {repsDone + (phase === 'ended' ? 0 : 1)}</span>
+        {workSecondsRemaining !== null && (
+          <WorkClock totalSeconds={workSecondsRemaining} />
+        )}
+        {config.penaltyCounterEnabled && (
+          <span className="hud-penalties" aria-label="pending penalty reps">
+            +{penalties}
+          </span>
+        )}
         <button
           type="button"
           className="link"
@@ -76,7 +117,7 @@ export function TrainerScreen() {
         {phase === 'waiting' && (
           <div className="ready">
             <span className="ready-label">READY</span>
-            <span className="dot" />
+            <span className="motion-pulse" aria-hidden="true" />
           </div>
         )}
 
@@ -103,6 +144,16 @@ export function TrainerScreen() {
         )}
       </main>
     </div>
+  )
+}
+
+function WorkClock({ totalSeconds }: { totalSeconds: number }) {
+  const m = Math.floor(totalSeconds / 60)
+  const s = totalSeconds % 60
+  return (
+    <span className="hud-clock" aria-label="work time remaining">
+      {m}:{s.toString().padStart(2, '0')}
+    </span>
   )
 }
 

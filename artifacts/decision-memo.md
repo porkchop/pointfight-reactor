@@ -1,105 +1,210 @@
-# Phase 1 decision memo — local MVP cue trainer
+# Phase 2 decision memo — round structure + configurable input
+
+(Supersedes the Phase 1 memo. The Phase 1 memo is preserved in git history;
+the most recent memo is the one of record per `QUALITY_GATES.md` §"Planning gate".)
 
 ## Goal
-Ship a fullscreen, low-latency go/no-go reaction trainer the athlete can use in
-his gym within two weeks of his next competition. Single drill type, single
-input (Space bar), local persistence, immediate per-rep feedback, session
-summary on stop.
+Make every rep require a physical commitment, place reps inside a workout
+structure, and surface enough configuration that the athlete can use the app
+in his real gym setup before competition (2 weeks out).
 
-## Non-goals (Phase 1)
-- Drill configuration UI (Phase 2)
-- Video opponent clips (Phase 3)
-- Configurable input mappings / kiosk polish (Phase 4)
-- Pose detection (Phase 5)
-- Long-term analytics dashboards (Phase 6)
+## Scope decision: split Phase 2
+
+`docs/PHASES.md` Phase 2 originally bundled seven acceptance criteria. One —
+phone-as-sensor with QR-paired WebRTC DataChannel and accelerometer
+threshold detection — requires its own substantial infrastructure (signaling
+server or signaling-free pairing, companion HTML, sensor calibration). It
+is the most uncertain piece and not strictly required for the athlete's
+2-week training window: USB foot pedals already provide the "real physical
+commitment" the spec demands.
+
+Decision: **defer phone-as-sensor to a new Phase 2b**. Phase 2 ships with
+the remaining six criteria. Phone-as-sensor becomes Phase 2b, scheduled
+after Phase 3 (visuospatial cues) unless time remains before competition.
+
+`docs/PHASES.md` is updated accordingly; `artifacts/phase-update.json`
+records the change. Approved phase numbering (Phase 1) is unchanged.
+
+## Phase 2 (revised) — acceptance criteria
+
+1. USB foot pedal works as configurable input (rebindable commit key).
+2. Keyboard input remains as fallback, **flagged in session metadata**.
+3. Session structure supports rounds: configurable work / rest / count
+   (default 2:00 / 1:00 / 5).
+4. Between cues, a continuous-motion indicator shows so the athlete is
+   not standing still.
+5. Pre-cue delay upper bound configurable up to 8 s.
+6. Optional penalty counter: false starts and hesitations add reps to a
+   during-rest clear-list.
+
+## Non-goals (Phase 2)
+- Phone-as-sensor (Phase 2b).
+- Visuospatial silhouette cues (Phase 3).
+- Drill-profile CRUD (Phase 4).
+- Multi-input simultaneous (e.g. pedal + phone) — single input source per
+  session, switchable on idle screen.
 
 ## Key decisions
 
-### D1. Response model: single commit key
-Phase 1 uses one input — **Space = commit**. Response *type* selection
-(blitz vs jam vs counter, etc.) is a Phase 2+ concern. This keeps the
-perception-action loop pure (see / commit / measure) and matches the spec's
-"discourage half-commitments" principle without forcing a key-choice subtask
-that itself adds cognitive delay.
+### D1. Round model: add `rounds`, `workMs`, `restMs` to `DrillConfig`
+`DrillConfig` already lives in `engine/types.ts` and flows through the
+Zustand store. Round structure is a natural extension. New fields:
 
-A foot pedal in Phase 4 is just another keyboard input mapping to Space, so
-this choice does not constrain Phase 4.
+```
+rounds:  number   // default 5
+workMs:  number   // default 120_000
+restMs:  number   // default 60_000
+```
 
-### D2. Cue presentation: text + color, not images
-Cues render as large high-contrast text on a colored full-viewport background
-(green = go, red = no-go). Readable across a gym, no asset pipeline required,
-no layout shift between cue types. Image/video cues belong to Phase 3.
+Engine adds a `roundIndex` (0-based) to in-flight state and a `workEndAt`
+timestamp set when each round begins. A new phase value `'rest'` joins
+`'waiting' | 'showing' | 'feedback'`. Transition rules:
 
-### D3. Cue classification (per-rep result)
-Given a rep with `cue.isGo`, `pressTime`, `cueShownTime`, `responseWindowMs`,
-`hesitationThresholdMs`:
+- on `start()`: roundIndex = 0, workEndAt = now + workMs, phase = 'waiting'
+- on `recordPress`/`finishWindow`: if `performance.now() >= workEndAt`,
+  transition into `'rest'` after feedback instead of `beginRep`.
+- on rest timer expiry: increment roundIndex; if `>= rounds`, `phase = 'ended'`
+  via `stop()`; else reset workEndAt and `beginRep`.
 
-| Cue   | Press relative to cue                          | Result          | Score |
-|-------|------------------------------------------------|-----------------|-------|
-| go    | press before cue                               | false_start     | -1    |
-| go    | press within [0, hesitationThreshold)          | correct_go      | +1    |
-| go    | press within [hesitationThreshold, window]     | hesitation      | -2    |
-| go    | no press by end of window                      | late            |  0    |
-| no-go | press before cue or within window              | false_start     | -1    |
-| no-go | no press by end of window                      | correct_no_go   | +1    |
+Round transitions are deterministic and unit-testable with an injected
+clock identical to Phase 1's RNG injection.
 
-Hesitation vs late is the spec's distinction: a half-go (slow press) is *worse*
-than a clean miss, because the rep's purpose is to train commitment.
-`hesitationThresholdMs` defaults to 450ms (roughly twice an elite simple-RT)
-and is a constant for Phase 1 — Phase 2 will surface it in config.
+### D2. Input source: keyboard vs pedal flag (no auto-detect)
+Foot pedals enumerate as standard HID keyboards. We cannot reliably
+distinguish "user pressed a key with their finger" from "user pressed a
+key with their foot" at the JS layer. So:
 
-### D4. Timing source: `performance.now()` everywhere
-All cue/press timestamps use `performance.now()` for sub-millisecond
-monotonic measurement. `Date.now()` is reserved for session metadata
-(start/end wall-clock).
+- Settings screen has an explicit toggle: **Keyboard (dev/fallback)** /
+  **Foot pedal**.
+- Settings screen also lets the athlete rebind the commit key (default
+  Space; pedals are commonly preconfigured to Space already, but some
+  pedals emit Enter, F12, etc.).
+- The toggle value is stamped on the session record as `inputSource`
+  and shown on the summary screen.
+- A small banner appears on the idle screen if the active source is
+  `keyboard`: "Keyboard mode — pedal recommended for live drilling".
 
-### D5. Random delay before cue
-Each rep waits `randInt(preCueMinMs, preCueMaxMs)` (default 1500–4000ms)
-before showing the cue. Pressing during this window is a false start.
-The RNG is injected into the engine so tests are deterministic.
+Operational consequence: keyboard remains usable for setup/dev and is
+explicitly labelled as a fallback in stored metadata, matching the
+spec's intent.
 
-### D6. State: Zustand for live, Dexie for durable
-- Zustand store holds the in-flight drill state (current phase, current cue,
-  current rep results). It is throwaway — closing the tab loses it.
-- Dexie/IndexedDB stores completed sessions and their reps. Schema:
-  - `sessions { id, startedAt, endedAt?, drillType, repCount, summary }`
-  - `reps    { id, sessionId, cueId, isGo, result, reactionMs, score }`
-- Sessions are written *incrementally* (one session row at start, reps as they
-  complete, session updated at stop). If the tab is closed mid-drill the
-  partial session remains queryable.
+### D3. Continuous-motion indicator: CSS-only pulse, between cues
+A single absolutely-positioned circle on the trainer stage. CSS
+`@keyframes` pulses scale + opacity at ~110 BPM. Visible only when
+`phase === 'waiting'`. No JS timer, no per-frame state updates. Zero
+runtime cost beyond GPU compositing. This is the simplest thing that
+encodes the spec's "continuous-motion expectation" without introducing
+audio assets or new timing concerns.
 
-### D7. Engine is a pure module, UI subscribes
-The drill engine (`src/engine/drill.ts`) is a pure state machine with no React
-or DOM dependencies — input is `{config, now, rng}`, output is rep records
-and phase transitions. This is the testable core; the UI is a thin
-projection. Justification: spec lists the engine as the primary module
-worth getting right, and pure state machines are the only kind of timing
-logic that can be unit-tested without flakiness.
+A future Phase 3/4 can replace this with the visuospatial cue silhouette
+when those land. For Phase 2 a soft pulse is sufficient.
 
-### D8. Cue library: static, in-code, eight cues
-The spec's eight named cues live in `src/cues/library.ts` as a frozen array
-with `{id, label, description, isGo, expectedResponse}`. No DB-backed cue
-editing in Phase 1 — that would require schema churn before Phase 2 even
-starts.
+### D4. Pre-cue delay extension: just relax bounds + add validation
+`preCueMaxMs` currently defaults 4000. Spec says configurable up to 8000.
+No engine change required — `pickPreCueDelayMs` already accepts whatever
+bounds the config gives it. Settings UI exposes the two numbers with
+inline validation:
+
+- 500 ≤ preCueMinMs ≤ preCueMaxMs ≤ 8000
+
+Validation lives in a single `validateDrillConfig()` helper in
+`engine/drill.ts` so it can be reused by tests and the UI form.
+
+### D5. Penalty counter: derived, not stored separately
+Penalties are a *view* over the existing rep stream — no new persistent
+field needed. A pure helper `pendingPenalties(reps, perFalseStart,
+perHesitation, cleared)` returns the current outstanding count.
+
+- `cleared: number` is a new field on the session record (default 0).
+- The athlete clicks "Clear N reps" on the rest screen; the store
+  increments `cleared` by 1 each click (and persists the session).
+- Optional toggle on the settings screen: `penaltyCounterEnabled`. When
+  off, the clear-list is hidden but rep classification is unchanged.
+
+This keeps penalties as a derived view, which means importing a session
+later (CSV export, Phase 4) does not depend on a separate table.
+
+### D6. Settings persistence: small `settings` Dexie table, single row
+Add a `settings` store keyed by literal `'singleton'`. Fields:
+
+```
+{
+  id: 'singleton',
+  commitKey: 'Space' | string,       // e.g. KeyboardEvent.code
+  inputSource: 'keyboard' | 'pedal',
+  rounds, workMs, restMs,
+  preCueMinMs, preCueMaxMs,
+  penaltyCounterEnabled: boolean,
+  perFalseStartPenalty, perHesitationPenalty,
+}
+```
+
+Loaded on app boot, persisted on every settings save. Simpler than a
+flat `localStorage` adapter and gives us migration paths (Dexie
+versioning) when Phase 4 expands drill profiles. Migration: `db.version(2)`
+adds the `settings` store; `version(1)` data is untouched (sessions/reps
+schemas unchanged for Phase 2).
+
+### D7. Where new state lives
+- Engine module additions: `validateDrillConfig`, `pendingPenalties`,
+  round-state transition helpers. Pure functions; unit-tested.
+- Zustand store: `roundIndex`, `workEndAt`, `restEndAt`, `cleared`,
+  `inputSource`. Orchestration only — no domain logic in the store.
+- New `store/settings.ts` for the Dexie settings table getter/setter.
+- New `ui/SettingsScreen.tsx` reachable from idle screen.
+- New `ui/RestScreen.tsx` shown during inter-round rest with: round
+  number, time remaining, penalty clear-list (if enabled), Skip button.
+
+### D8. Backward compatibility with Phase 1 data
+- Existing `sessions` rows from Phase 1 have no `rounds` / `workMs` /
+  `inputSource` / `cleared` fields. Treat missing fields as defaults
+  when listing recent sessions.
+- The default `start()` (no overrides) uses the new defaults but does
+  not require explicit round structure to function — passing
+  `rounds: 1, workMs: Infinity` reproduces Phase 1 behavior (used in
+  existing unit tests). This preserves the Phase 1 behavior contract.
 
 ## Risks and mitigations
-- **Timer drift / browser throttling in background tabs.** Mitigation: use
-  `performance.now()` and document that the window must stay focused. Phase 4
-  fullscreen kiosk mode will harden this further.
-- **IndexedDB unavailable in private-window contexts.** Mitigation: catch
-  Dexie open errors and degrade to ephemeral mode with a visible banner.
-- **Keyboard repeat fires multiple presses.** Mitigation: engine only accepts
-  the *first* press per rep; subsequent presses in the same rep are ignored.
+- **Round timer drift across the rest screen.** Mitigation: drive both
+  work and rest from `performance.now()` absolute deadlines, not
+  setTimeout-accumulated intervals. The trainer's existing tick uses
+  this pattern already.
+- **`Space` rebind conflicts with the existing `Space=acknowledge feedback`
+  shortcut.** Mitigation: the commit key and the acknowledge key are
+  treated as the same key by intent — feedback advances on commit key
+  press. The rebind covers both uses simultaneously.
+- **Settings table absent on first run.** Mitigation: settings getter
+  seeds defaults if the row is missing.
+- **`KeyboardEvent.code` may differ across layouts for non-letter pedals.**
+  Mitigation: capture `event.code` (the physical key id, layout-independent)
+  rather than `event.key`. Display the code to the user during rebind.
 
 ## Test strategy
-- Unit-test the engine with an injected RNG and a controlled clock (manual
-  `now` advance), covering each row of the D3 table.
-- Build verification: `tsc -b` (typecheck) + `vite build` succeed.
-- Manual browser smoke: run a 5-rep session, confirm summary persists across
-  page reload.
-- QA-playwright if available; otherwise document the manual repro steps in
-  the phase-approval artifact.
+- **Engine**: extend `engine/drill.test.ts` with `validateDrillConfig`
+  edge cases (lower bound, upper bound, inversion) and `pendingPenalties`
+  (counts, clearing).
+- **Round transitions**: new `engine/rounds.test.ts` driving the
+  transition helper with a controlled clock through work → rest →
+  next work → ended.
+- **Store**: extend `store/session.test.ts` with a round-end branch and
+  the cleared counter.
+- **Settings**: `store/settings.test.ts` against `fake-indexeddb`
+  covering seed-on-missing and persistence round-trip.
+- **UI**: settings form validation rejects invalid bounds (Vitest +
+  jsdom).
+- **Browser**: qa-playwright exercises a 2-round drill end-to-end:
+  starts → fires reps → enters rest with clear-list visible →
+  finishes round 2 → summary lists `inputSource: keyboard`.
 
 ## Rollback path
-Phase 1 lives entirely under `app/`. Reverting the phase commit restores the
-scaffold.
+Phase 2 lives entirely under `app/`. Reverting the phase commit
+restores Phase 1 behavior. Dexie schema bump (`version(2)` adding
+`settings`) is additive — Phase 1 stores remain queryable; rolling
+back simply leaves an unused IndexedDB store, which Dexie ignores
+on the prior version constructor.
+
+## Out-of-scope deferred to later phases
+- Phone-as-sensor → Phase 2b (now added to `docs/PHASES.md`).
+- Per-cue-type RT breakdown / drill-profile CRUD → Phase 4.
+- Visuospatial silhouettes → Phase 3.
+- Analytics-over-time views → Phase 5.
