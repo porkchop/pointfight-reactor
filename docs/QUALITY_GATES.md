@@ -1,0 +1,200 @@
+# Quality gates
+
+## Anti-rationalization
+
+These are excuses agents (and humans) reach for when they want to skip a gate. Each pairs with the reality that makes the excuse wrong. Read this section before relaxing any rule below.
+
+| Rationalization | Reality |
+|---|---|
+| "This is too small for the spec / phase model" | The phase model is what makes 'small' verifiable. Skipping produces work that cannot be approved. |
+| "I'll add the phase-approval artifact later" | Without it, the next agent has no audit trail and the loop cannot advance. The artifact *is* the gate. |
+| "I can just quickly implement this" | Audit-first exists because existing code may already satisfy the goal. Re-implementing without auditing produces drift. |
+| "The test isn't strictly necessary here" | The testing gate requires a test that would fail if the change were reverted. If you can't write one, you don't understand the change. |
+| "Two near-duplicates is fine for now" | The DRY gate targets logic that encodes the same invariant in two places. That kind of duplication silently rots when one side changes. |
+| "I'll skip the planner — the design is obvious" | The planning gate exists for changes that cross layers, touch persistence/auth, or have multiple plausible strategies. 'Obvious' is what missed-the-tradeoff sounds like before review. |
+| "I'll loosen project settings just for this run" | Project settings are shared. Permissive execution belongs in `settings.local.json` or CLI flags, never committed. |
+| "Code review can wait until after merge" | The review gate catches duplication, missed drift, and architecture violations the implementer is least likely to see. After-merge review is a documentation step, not a gate. |
+| "I'll push anyway, CI will catch it" | CI is shared infrastructure. Broken master pages humans, blocks deploys, and disrupts other consumers of the loop. The pre-commit verify gate exists so easy classes of failure are caught locally. |
+| "I'll skip the verification sprint — nothing changed there" | Cumulative regressions are the failure mode the sprint exists to catch. 'Nothing changed' is an assumption, not evidence. |
+| "Discovered work can wait for a later phase" | Discovered work that blocks the current phase is part of the current phase. Deferring it produces phases that pass review but don't actually deliver. |
+
+If you find yourself making one of these arguments, stop and re-read the relevant gate below.
+
+## Universal gate
+A phase is only complete when all of the following are true:
+- documented acceptance criteria pass
+- relevant tests pass
+- `code-reviewer` approves
+- `qa-playwright` approves for user-visible or browser-based work
+- docs are updated for any rule or architecture decision
+- `artifacts/phase-approval.json` is written with `approved: true`
+- the outer orchestration layer creates a git commit before the next phase begins
+
+## Testing gate
+A phase is not complete unless:
+- every new module, endpoint, or public behavior has at least one test exercising its primary path
+- every bug fix includes a regression test that would fail without the fix
+- tests are written before or alongside implementation code, not retrofitted after
+- test names describe the behavior under test, not implementation details
+- edge cases and error paths are tested for any logic identified as risky in the spec or decision memo
+
+When coverage tooling is available in the target project, aim for meaningful branch coverage of new code. Do not pursue a numeric target at the expense of test quality — a focused test that catches real regressions is worth more than broad shallow coverage.
+
+"Relevant tests pass" (from the universal gate) means: tests exist that would fail if the feature were removed or the bug fix reverted.
+
+## DRY and reuse gate
+- business rules and validation logic must exist in exactly one place
+- if the same logic appears in more than one layer, extract it to a shared module or justify the duplication in a decision memo
+- builders must check for existing utilities and shared modules before creating new ones
+- code-reviewer must reject changes that introduce unjustified duplication
+
+## Drift detection gate
+Before starting a new implementation phase, the assigned builder must:
+- review code produced in prior phases for overlap with the current task
+- flag any inconsistency between the current plan and already-approved code
+- prefer extending existing modules over creating parallel implementations
+- report discovered drift as a blocking issue for project-lead to resolve before proceeding
+
+## Verification sprint gate
+Before starting a phase that builds on a completed user-visible or end-to-end foundation, run a full verification of the cumulative system to confirm prior work still functions:
+- run the complete test suite (unit, integration, and browser/E2E when applicable)
+- exercise the primary user workflow end-to-end via `qa-playwright` for browser projects, or via the project's domain-equivalent QA (CLI smoke test, integration harness) for non-browser projects
+- fix any regressions before starting new work — do not layer new complexity onto broken foundations
+- record verification results under a `verification_sprint` field in the next `artifacts/phase-approval.json`
+
+## Planning gate
+Use a planning and adversarial review cycle before implementation when any of the following are true:
+- the change crosses multiple layers
+- persistence or schema choices are involved
+- auth, security, or public internet exposure is involved
+- the refactor could invalidate prior assumptions
+- there are at least two plausible implementation strategies
+- scaffold control flow, capability generation, or packaging behavior is affected (self-improvement mode)
+
+Required outputs:
+- `artifacts/decision-memo.md`
+- optional ADR in `docs/adr/` (use `docs/ADR_TEMPLATE.md`; follow naming convention `ADR-NNNN-short-title.md`)
+
+## Meta-project gates
+For scaffold self-improvement work, a phase is not complete until:
+- the current meta-phase acceptance criteria pass
+- `strategy-planner` is used for material design changes
+- `architecture-red-team` is used for architectural or autonomy-affecting changes
+- `code-reviewer` approves
+- generated skills validate and package successfully for any skill-related phase
+- docs and manifest entries are updated
+- `artifacts/phase-approval.json` is written
+- the outer wrapper commits the approved phase before the next one begins
+
+## Control-loop change gate
+Any change affecting:
+- project-lead behavior
+- quality gates
+- commit flow
+- hooks
+- settings
+- generation scripts
+- skill packaging flow
+- subagent definitions (`.claude/agents/`)
+
+must include:
+- rationale
+- tradeoffs
+- rollback path
+- updated docs
+- explicit reviewer approval
+
+## Commit gate
+Claude must stop after writing `artifacts/phase-approval.json`.
+The host-side wrapper is responsible for:
+1. reading the approval artifact
+2. running the pre-commit verification gate (see below)
+3. creating a git commit
+4. resuming Claude for the next phase
+
+## Pre-commit verification gate
+The wrapper runs a project-defined fast-check command before creating any phase commit, regardless of whether `AUTO_PUSH` is enabled. Mechanism lives in the scaffold (`scripts/run-until-done.sh`); policy lives in the project (`scripts/phasekit-verify.sh`).
+
+Scope of the verify command:
+- fast checks only — lint, typecheck, formatter, unit tests
+- **not** full E2E or integration suites (those belong to the verification-sprint gate, which Claude drives at phase boundaries)
+- target under ~30 seconds; this runs every iteration
+
+On failure:
+- the commit is **not** created
+- the wrapper writes `artifacts/phase-verify-failed.json` with the failing command, exit code, attempt counter, and a tail of the output
+- the next iteration's `CONTINUE_PROMPT.txt` directs Claude to fix the failure before doing any new phase work
+- after `VERIFY_MAX_ATTEMPTS` (default 3) consecutive failures on the same artifact, the wrapper writes `artifacts/phase-blocked.json` and exits so a human can intervene
+
+To recover from a circuit-break: fix the underlying failure (or set `VERIFY_SKIP=1` if the next iteration legitimately needs to commit red), then re-run `scripts/run-until-done.sh`. The wrapper resets the verify-attempt counter at the start of any fresh `CLAUDE_MODE=new` run; `phase-blocked.json` is cleared automatically by the iteration's `cleanup_artifacts` step.
+
+Escape hatches:
+- `VERIFY_SKIP=1` bypasses the gate for one iteration (use sparingly — docs-only phases or TDD phases that intentionally commit a red test)
+- `PHASEKIT_VERIFY_CMD="..."` overrides the script with a one-shot command
+
+Configuration is project-owned: edit `scripts/phasekit-verify.sh` (rendered into the project at enrich time) to declare the right fast checks for the stack. Until configured, the gate fail-opens with a warning so un-instrumented projects continue to work.
+
+## Suggested phase approval artifact
+
+```json
+{
+  "phase": "phase-4",
+  "approved": true,
+  "summary": "Primary browser workflow verified and accepted.",
+  "suggested_commit_message": "phase-4: approve browser workflow"
+}
+```
+
+For phases that required a planning gate, include a `decision_memo` field referencing the governing artifact:
+
+```json
+{
+  "phase": "meta-M5.1",
+  "approved": true,
+  "summary": "...",
+  "decision_memo": "artifacts/decision-memo.md",
+  "suggested_commit_message": "meta-M5.1: ..."
+}
+```
+
+This field is optional for phases that did not require a planning gate, and required for those that did.
+
+## Final completion artifact
+
+```json
+{
+  "done": true,
+  "summary": "Required phases completed and production requirements satisfied.",
+  "final_notes": [
+    "Known limitation 1",
+    "Known limitation 2"
+  ]
+}
+```
+
+## Discovered work and phase expansion
+
+During execution, the lead may discover that the current phase is underspecified or that additional prerequisite work is required.
+
+In that case:
+
+### Minor discovered work
+If the new work is small, backward-compatible, and does not require external input:
+- update the relevant docs directly
+- append or refine acceptance criteria
+- continue the current phase without asking the user
+
+### Major but self-resolvable discovered work
+If the new work is substantial but can be resolved using existing repo context and subagents:
+- invoke strategy-planner and architecture-red-team as needed
+- update META_SPEC.md, META_PHASES.md, ADRs, or related docs
+- split the phase into subphases or append follow-on phases as needed
+- do not ask the user for confirmation merely to continue planning
+- write `artifacts/phase-update.json` if the phase plan changed materially
+
+### External blocker
+If required information is genuinely missing from the repo and cannot be resolved autonomously:
+- write `artifacts/phase-blocked.json`
+- stop without writing `artifacts/phase-approval.json`
+
+Approved phase numbering must remain stable. Do not renumber already-approved phases retroactively.

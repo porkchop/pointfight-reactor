@@ -1,0 +1,332 @@
+:root {
+  --gym-bg: #08090c;
+  --gym-fg: #f8fafc;
+  --gym-muted: #94a3b8;
+  --gym-accent: #38bdf8;
+  --gym-go: #16a34a;
+  --gym-no-go: #f59e0b;
+  --gym-correct: #16a34a;
+  --gym-bad: #dc2626;
+  --gym-warn: #f59e0b;
+  --gym-neutral: #1f2937;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--gym-bg);
+  color: var(--gym-fg);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  text-align: left;
+  border: none;
+}
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+button.primary {
+  font-size: 2.2rem;
+  font-weight: 700;
+  padding: 1.2rem 2.6rem;
+  border-radius: 14px;
+  border: none;
+  background: var(--gym-accent);
+  color: #04121a;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+}
+button.primary:hover {
+  filter: brightness(1.1);
+}
+button.primary:focus-visible {
+  outline: 4px solid var(--gym-fg);
+  outline-offset: 4px;
+}
+
+button.link {
+  background: transparent;
+  color: var(--gym-muted);
+  border: 1px solid var(--gym-neutral);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.1em 0.55em;
+  border-radius: 6px;
+  border: 1px solid var(--gym-neutral);
+  background: #111827;
+  font-family: ui-monospace, monospace;
+  font-size: 0.95em;
+}
+
+/* ---- Idle screen ---- */
+.screen.idle {
+  gap: 1.8rem;
+  text-align: center;
+}
+.screen.idle h1 {
+  margin: 0;
+  font-size: clamp(2.8rem, 6vw, 4.6rem);
+  letter-spacing: -1.5px;
+}
+.screen.idle .subtitle {
+  margin: -0.6rem 0 0;
+  color: var(--gym-muted);
+  font-size: 1.4rem;
+}
+.screen.idle .hint {
+  color: var(--gym-muted);
+  font-size: 1.1rem;
+}
+.recent {
+  width: min(640px, 100%);
+  margin-top: 1rem;
+  border-top: 1px solid var(--gym-neutral);
+  padding-top: 1rem;
+  text-align: left;
+}
+.recent h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gym-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 0.6rem;
+}
+.recent ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.recent li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 1rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--gym-neutral);
+  border-radius: 6px;
+}
+.recent .when {
+  color: var(--gym-fg);
+}
+.recent .meta {
+  color: var(--gym-muted);
+}
+
+/* ---- Trainer screen ---- */
+.screen.trainer {
+  position: relative;
+  padding: 0;
+  transition: background-color 80ms linear;
+}
+.screen.trainer .hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  color: var(--gym-muted);
+  z-index: 2;
+}
+.screen.trainer .stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.ready,
+.cue,
+.feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.ready-label {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: 6px;
+  color: var(--gym-muted);
+  text-transform: uppercase;
+}
+.ready .dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gym-muted);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.cue-label {
+  font-size: clamp(5rem, 16vw, 14rem);
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 0.95;
+  text-align: center;
+  color: var(--gym-fg);
+}
+.cue-sub {
+  font-size: clamp(1.3rem, 3vw, 2.2rem);
+  color: var(--gym-muted);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.feedback-label {
+  font-size: clamp(4.5rem, 14vw, 12rem);
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 0.95;
+}
+.feedback-sub {
+  font-size: clamp(2rem, 4vw, 3rem);
+  color: var(--gym-fg);
+  font-family: ui-monospace, monospace;
+}
+
+.trainer-waiting {
+  background: var(--gym-bg);
+}
+.trainer-showing {
+  background: #0f172a;
+}
+.trainer-correct_go,
+.trainer-correct_no_go {
+  background: var(--gym-correct);
+}
+.trainer-correct_go .feedback-label,
+.trainer-correct_no_go .feedback-label {
+  color: #04121a;
+}
+.trainer-late {
+  background: var(--gym-warn);
+}
+.trainer-late .feedback-label {
+  color: #1a1208;
+}
+.trainer-false_start,
+.trainer-hesitation {
+  background: var(--gym-bad);
+}
+.trainer-false_start .feedback-label,
+.trainer-hesitation .feedback-label {
+  color: #1a0808;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.5); opacity: 1; }
+}
+
+/* ---- Summary screen ---- */
+.screen.summary {
+  align-items: stretch;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+.screen.summary h1 {
+  margin: 0 0 1.5rem;
+  font-size: 2.4rem;
+}
+.screen.summary h2 {
+  margin: 2rem 0 0.6rem;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gym-muted);
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  background: var(--gym-neutral);
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
+}
+.stat-value {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--gym-fg);
+  line-height: 1;
+}
+.stat-label {
+  margin-top: 0.3rem;
+  color: var(--gym-muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.cue-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1.05rem;
+}
+.cue-table th,
+.cue-table td {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--gym-neutral);
+}
+.cue-table th {
+  color: var(--gym-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+.cue-table td .tag {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--gym-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  align-items: center;
+}
+.banner.warn {
+  background: var(--gym-warn);
+  color: #1a1208;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.2rem;
+  font-weight: 600;
+}

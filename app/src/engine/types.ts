@@ -1,0 +1,89 @@
+export type CueId =
+  | 'steps_in'
+  | 'blitzes'
+  | 'lifts_lead_leg'
+  | 'drops_lead_hand'
+  | 'retreats'
+  | 'freezes'
+  | 'fake_steps'
+  | 'no_go_bait'
+
+export type ResponseId =
+  | 'blitz'
+  | 'stop_kick'
+  | 'angle_counter'
+  | 'jam_entry'
+  | 'evade_reset'
+  | 'do_nothing'
+
+export interface CueDef {
+  id: CueId
+  label: string
+  description: string
+  isGo: boolean
+  expectedResponse: ResponseId
+}
+
+export type RepResult =
+  | 'correct_go'
+  | 'correct_no_go'
+  | 'late'
+  | 'false_start'
+  | 'hesitation'
+
+export interface RepRecord {
+  id: string
+  sessionId: string
+  cueId: CueId
+  isGo: boolean
+  result: RepResult
+  reactionMs: number | null
+  score: number
+  cueShownAt: number
+  pressedAt: number | null
+}
+
+export interface SessionSummary {
+  reps: number
+  correct: number
+  falseStarts: number
+  lateMisses: number
+  hesitations: number
+  score: number
+  avgReactionMs: number | null
+}
+
+export interface SessionRecord {
+  id: string
+  startedAt: number
+  endedAt: number | null
+  drillType: 'first_beat_go_no_go'
+  repCount: number
+  summary: SessionSummary
+}
+
+export interface DrillConfig {
+  preCueMinMs: number
+  preCueMaxMs: number
+  responseWindowMs: number
+  hesitationThresholdMs: number
+  goCueProbability: number
+  maxReps: number | null
+}
+
+export const DEFAULT_DRILL_CONFIG: DrillConfig = {
+  preCueMinMs: 1500,
+  preCueMaxMs: 4000,
+  responseWindowMs: 1200,
+  hesitationThresholdMs: 450,
+  goCueProbability: 0.7,
+  maxReps: null,
+}
+
+export const SCORE_TABLE: Record<RepResult, number> = {
+  correct_go: 1,
+  correct_no_go: 1,
+  late: 0,
+  false_start: -1,
+  hesitation: -2,
+}

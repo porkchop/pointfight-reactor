@@ -1,0 +1,36 @@
+{
+  "phase": "phase-1",
+  "approved": true,
+  "summary": "Local MVP cue trainer complete: Vite/React/TS app with fullscreen go/no-go drill, randomized cue + delay, keyboard (Space) input, per-rep reaction-time measurement, immediate feedback, session summary, and IndexedDB persistence via Dexie. Drill engine is a pure module with 16 unit tests; Zustand store has 8 orchestration tests; cue library has a smoke test (28 tests total, all green). Lint, tsc, and production build all pass. Pre-commit verify gate is wired (scripts/phasekit-verify.sh runs npm lint + typecheck + tests under app/). Browser-verified by qa-playwright against all 7 acceptance criteria from docs/PHASES.md plus the mid-drill-reload persistence path. Code-reviewer round 1 raised 3 blockers (stale session row on tab close, untested pre-cue press path, duplicated rep-build logic); all 3 fixed and re-QA'd.",
+  "decision_memo": "artifacts/decision-memo.md",
+  "acceptance_criteria": [
+    { "criterion": "User can start a drill", "verified_by": "qa-playwright (Start button → trainer view)" },
+    { "criterion": "App presents randomized go/no-go cues", "verified_by": "qa-playwright observed 8 distinct cues across reps; pickNextCue distribution tested in drill.test.ts" },
+    { "criterion": "User can respond with keyboard", "verified_by": "qa-playwright pressed Space; window-level keydown listener in TrainerScreen.tsx:19-36" },
+    { "criterion": "App records reaction time", "verified_by": "engine classifyRep + qa-playwright observed integer ms on feedback" },
+    { "criterion": "App displays rep result immediately", "verified_by": "qa-playwright observed colored feedback screens (GO ✓, HOLD ✓, LATE, FALSE START, HESITATION)" },
+    { "criterion": "App summarizes the session", "verified_by": "qa-playwright observed Reps/Score/Correct/False-starts/Hesitations/Late/Avg tiles + per-cue table" },
+    { "criterion": "Session persists locally", "verified_by": "qa-playwright reloaded mid-drill; IndexedDB session row showed correct repCount and summary" }
+  ],
+  "gates": {
+    "testing": "28/28 vitest tests pass; engine, store, and cue library each have tests covering primary paths and identified risk paths (pre-cue press, response-window boundary, hesitation threshold).",
+    "dry": "Rep-record construction unified in commitRep helper (session.ts); session summary derived from reps in one place (engine summarize).",
+    "drift": "Phase 1 is greenfield against scaffold; no prior phase code to drift against.",
+    "planning": "decision-memo.md written (cross-layer + persistence schema triggered the planning gate).",
+    "verification_sprint": "n/a — first user-visible phase; no prior cumulative system to re-verify.",
+    "pre_commit_verify": "scripts/phasekit-verify.sh now runs npm lint + typecheck + tests under app/ and propagates failures; sentinel flipped to 1."
+  },
+  "review": {
+    "code_reviewer_initial": "REQUEST CHANGES — 3 blockers + nits",
+    "fixes_applied": [
+      "B1: persistSession now invoked from commitRep on every rep so IndexedDB sessions row stays in sync with reps even if tab closes mid-drill",
+      "B2: classifyPreCuePress added with dedicated test; store calls it explicitly instead of the prior magic `at + 1` hack",
+      "B3: commitRep helper extracted; recordPress and finishWindow both delegate to it",
+      "N2: response-window boundary test added",
+      "N7: cue library smoke test added",
+      "cosmetic: Math.round on displayed reactionMs"
+    ],
+    "qa_playwright_final": "PASS — all 7 acceptance criteria + both post-fix verifications"
+  },
+  "suggested_commit_message": "phase-1: local MVP go/no-go reaction trainer"
+}

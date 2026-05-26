@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "scaffold_version": "0.0.0+git.8f6a35e",
+  "scaffold_commit": "8f6a35e",
+  "profile": "game-project",
+  "enriched_at": "2026-05-26T04:52:07Z",
+  "normalization": {
+    "recipe": "lf-trim-trailing-ws-single-final-newline",
+    "version": 1
+  },
+  "files": [
+    {
+      "path": ".claude/agents/project-lead.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "c7f349f9b23a5be77c2949f5e349c0ce865502dd88169951a1ecef4de9d1c7ec",
+      "sha256_strict": "f5d617575a573db461f320178585c60bce1756b4b4582ca78e207d7922104bc3",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/strategy-planner.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "de35f52a5ade073fdf5d9b8ef35c13e6b70a063b5673f00b11d5460eafad2a09",
+      "sha256_strict": "de35f52a5ade073fdf5d9b8ef35c13e6b70a063b5673f00b11d5460eafad2a09",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/architecture-red-team.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "59ee3634542f18d5b00a45899b2b75f5d32a361865e96263158d1bfb1849fa5a",
+      "sha256_strict": "59ee3634542f18d5b00a45899b2b75f5d32a361865e96263158d1bfb1849fa5a",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/code-reviewer.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "4f3a5e580d051ebbd8cab2d634963b61aa3682ba33c0a934da0f3396c7685807",
+      "sha256_strict": "4f3a5e580d051ebbd8cab2d634963b61aa3682ba33c0a934da0f3396c7685807",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/qa-playwright.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "7dbd82ac67043f1e9a0c956936316eef720a30dad037e4b177ba681311364f0e",
+      "sha256_strict": "7dbd82ac67043f1e9a0c956936316eef720a30dad037e4b177ba681311364f0e",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/engine-builder.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "5b160f0971615c93d9d4f5ceca24966fec1e58a820b186c8732e99fcd2f6d23a",
+      "sha256_strict": "5b160f0971615c93d9d4f5ceca24966fec1e58a820b186c8732e99fcd2f6d23a",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/frontend-builder.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "3a97fe3011a08ccd89a4aa0b82553e516a32cb82d5e6c2b5d511c9048aa264b2",
+      "sha256_strict": "3a97fe3011a08ccd89a4aa0b82553e516a32cb82d5e6c2b5d511c9048aa264b2",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/backend-builder.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "8aa3b0da765062bcc665177d4a0ea47569ca0dc593f3b5e0d954f77af1843850",
+      "sha256_strict": "8aa3b0da765062bcc665177d4a0ea47569ca0dc593f3b5e0d954f77af1843850",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/agents/release-hardening.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "e910eb0b9910e172329f8198181c0a04671456393f833e65bf984af8799168e1",
+      "sha256_strict": "e910eb0b9910e172329f8198181c0a04671456393f833e65bf984af8799168e1",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/SPEC.md",
+      "ownership": "bootstrap-frozen",
+      "text": true,
+      "sha256": "0235c58fb0396c4e56baa6b6443f83cc9c09380c2f85c0c00fe961c532f40602",
+      "sha256_strict": "0235c58fb0396c4e56baa6b6443f83cc9c09380c2f85c0c00fe961c532f40602",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "ownership": "bootstrap-frozen",
+      "text": true,
+      "sha256": "a0509f7461bab88de7d697df88ad3347e6641daaeecf90e3d6ac183079f40391",
+      "sha256_strict": "a0509f7461bab88de7d697df88ad3347e6641daaeecf90e3d6ac183079f40391",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/PHASES.md",
+      "ownership": "bootstrap-frozen",
+      "text": true,
+      "sha256": "5d1850cb30a8955601b425b3c8a22d2534fc2c817105d474f1d9358ca2821742",
+      "sha256_strict": "5d1850cb30a8955601b425b3c8a22d2534fc2c817105d474f1d9358ca2821742",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/QUALITY_GATES.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "04708b371afdd9921ab0733bd6bc475b4e5e60502b0ed2a9a79ec0170ba895de",
+      "sha256_strict": "77c5de15012926b8f2b90bfc7899eeed4a98dab1b21df669fe5ed2dcc2a368b1",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/PROD_REQUIREMENTS.md",
+      "ownership": "bootstrap-frozen",
+      "text": true,
+      "sha256": "b8752c271509d982c3bfc824e4e5291fe6933b80ca988de981414f26d8c39fed",
+      "sha256_strict": "b8752c271509d982c3bfc824e4e5291fe6933b80ca988de981414f26d8c39fed",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/USAGE_PATTERNS.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "2d52e9dbc7206c04d560d689123b01b1ff5c398b34ef0370f5593fecc072cf7d",
+      "sha256_strict": "2d52e9dbc7206c04d560d689123b01b1ff5c398b34ef0370f5593fecc072cf7d",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/EXECUTION_MODES.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "ec4d1ebc1e1f14982a9b483c37b55b397b9a5e75c760dd38c792407e050d8642",
+      "sha256_strict": "ec4d1ebc1e1f14982a9b483c37b55b397b9a5e75c760dd38c792407e050d8642",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/REASONING_PROFILES.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "74dbf3f4d96d669e65f22d702c467ab844a4fa0ac8c978e44c3020a04881e3d4",
+      "sha256_strict": "74dbf3f4d96d669e65f22d702c467ab844a4fa0ac8c978e44c3020a04881e3d4",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/ADR_TEMPLATE.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "d337b2ef7676afd275edfd1c57a90cf3722d5d37cc281430530256b3e7ed2fc7",
+      "sha256_strict": "d337b2ef7676afd275edfd1c57a90cf3722d5d37cc281430530256b3e7ed2fc7",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/CONTAINERIZATION.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "eedbffd7c6743b3ee7ba370ffa25b3bc38b8e1891b331068bf3dabada042aa15",
+      "sha256_strict": "eedbffd7c6743b3ee7ba370ffa25b3bc38b8e1891b331068bf3dabada042aa15",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "docs/INSTALL_LIFECYCLE.md",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "e057ab70e0475c71b0a6ba751bd03d85461946673b094d5122851fb9664fefed",
+      "sha256_strict": "e057ab70e0475c71b0a6ba751bd03d85461946673b094d5122851fb9664fefed",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/hooks/deny-dangerous-commands.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "a8d4e461a079c46ed52e07f32e39bf3b4531643fe66df80eeced06bf8b2e4087",
+      "sha256_strict": "a8d4e461a079c46ed52e07f32e39bf3b4531643fe66df80eeced06bf8b2e4087",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "scripts/run-phase.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "e83830eb725e2ed43da629a3e032a6cc65a818bd7e2269d6090a14bb9862b73a",
+      "sha256_strict": "dc9dd83c401829c3bc8505ada3151ff0af339c0226c205c653b013276c229717",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "scripts/run-until-done.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "0b42e3c795b1b45fbd37ef67c39adfb3ccdeb5492fdddd077178d93d486a5ec1",
+      "sha256_strict": "28db65cf53ea570afaa66d80c841ac5cb09d49e3b8810bd27ca49e00d40ffbe4",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".claude/settings.json",
+      "ownership": "bootstrap-with-template-tracking",
+      "text": true,
+      "sha256": "18f21a230550abd5935c28de5068912e3fb1bc48f9e62170a6fbc9f0786441e9",
+      "sha256_strict": "18f21a230550abd5935c28de5068912e3fb1bc48f9e62170a6fbc9f0786441e9",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z",
+      "rendered_from": "templates/settings.template.json",
+      "template_sha": "18f21a230550abd5935c28de5068912e3fb1bc48f9e62170a6fbc9f0786441e9"
+    },
+    {
+      "path": ".claude/CLAUDE.md",
+      "ownership": "bootstrap-with-template-tracking",
+      "text": true,
+      "sha256": "4a6524e203b4886dc5ee5b8760f26607f24e989bc12a1ae3a7c58d7c04b9d93c",
+      "sha256_strict": "8afd99185571e3f5ff3ecc3e2469c76e1be3eb75816b2ed68953e0c202032fb1",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z",
+      "rendered_from": "templates/CLAUDE.template.md",
+      "template_sha": "7983e31d0b1f3bd34fc64abb4d3512f08d57fd52a6e5dea0b3b00a398f28f15e"
+    },
+    {
+      "path": "AGENTS.md",
+      "ownership": "bootstrap-with-template-tracking",
+      "text": true,
+      "sha256": "99c7c95f1823ace0cd168eea92d9cdfac3da7d179b3bae41c34bb4e0ad420b57",
+      "sha256_strict": "99c7c95f1823ace0cd168eea92d9cdfac3da7d179b3bae41c34bb4e0ad420b57",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z",
+      "rendered_from": "templates/AGENTS.template.md",
+      "template_sha": "cc221b3aeeab2b90b57d78e44a3bf7fed11a4907fea3faf67b66ce99c984b4d6"
+    },
+    {
+      "path": "scripts/phasekit-verify.sh",
+      "ownership": "bootstrap-with-template-tracking",
+      "text": true,
+      "sha256": "2f7eae25724f7ad2b3c1b50b87bde05410c4185ae0aa22acf010524f7cf4c37f",
+      "sha256_strict": "2f7eae25724f7ad2b3c1b50b87bde05410c4185ae0aa22acf010524f7cf4c37f",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z",
+      "rendered_from": "templates/phasekit-verify.template.sh",
+      "template_sha": "5149ba08b8d006f137c8d4d943f45b5211cb491321fff2d59aca64278c96a5ed"
+    },
+    {
+      "path": "CONTINUE_PROMPT.txt",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "79c463071f1d2c04b25ca3881c96ad626f982f9dfaea0c6febe741ff3a131f86",
+      "sha256_strict": "ac8689e25892b61f8ec48e88d68cd704037ec0727f1f0932ecdd816c653ca3ff",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "scripts/container-setup.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "bb7d58798ae8b25611252bcb9971e7c7d3c7f2645d26129bbebfa54e2159ce9f",
+      "sha256_strict": "bb7d58798ae8b25611252bcb9971e7c7d3c7f2645d26129bbebfa54e2159ce9f",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "scripts/verify-container.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "6b340d3de624a5c6438d06f83bfd5bae1f1f9a8fd486235a2a1c67b3c55ac2ca",
+      "sha256_strict": "6b340d3de624a5c6438d06f83bfd5bae1f1f9a8fd486235a2a1c67b3c55ac2ca",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "scripts/phasekit.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "1587514b63e668147a79ac32993a4b12a2e0ac3ff63de342da8ca654a541b140",
+      "sha256_strict": "1587514b63e668147a79ac32993a4b12a2e0ac3ff63de342da8ca654a541b140",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": "scripts/phasekit-log-fmt.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "9b5a86abb7ffce961f750dfddee3dbff032b7bfbf6decca2990d0fe308be6510",
+      "sha256_strict": "9b5a86abb7ffce961f750dfddee3dbff032b7bfbf6decca2990d0fe308be6510",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".devcontainer/devcontainer.json",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "75ac2e93c43f5d8821e3d9d0615c3b3cfed3899d1f5bfc86162919c6e74aeb47",
+      "sha256_strict": "75ac2e93c43f5d8821e3d9d0615c3b3cfed3899d1f5bfc86162919c6e74aeb47",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".devcontainer/Dockerfile",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "b70d709b832242cf280baf4fca97b776e16c483982f1f4833791d777d5cca653",
+      "sha256_strict": "b70d709b832242cf280baf4fca97b776e16c483982f1f4833791d777d5cca653",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".devcontainer/entrypoint.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "58ac0aeb4950208af2428aba3dcbf49c84bab6e0500d30a499cf9f29bfa9bc0f",
+      "sha256_strict": "58ac0aeb4950208af2428aba3dcbf49c84bab6e0500d30a499cf9f29bfa9bc0f",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    },
+    {
+      "path": ".devcontainer/init-firewall.sh",
+      "ownership": "scaffold",
+      "text": true,
+      "sha256": "0adb4ca9d895c34265df91238e2b3162e575488481aa520b70eb265ca9e27f9c",
+      "sha256_strict": "0adb4ca9d895c34265df91238e2b3162e575488481aa520b70eb265ca9e27f9c",
+      "overlays": [],
+      "installed_at": "2026-05-26T04:52:07Z"
+    }
+  ]
+}
