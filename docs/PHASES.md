@@ -1,74 +1,88 @@
 # Phase Plan
 
-## Phase 1: Local MVP Cue Trainer
+## Phase 1: Local MVP Cue Trainer ✅ approved
+Build a React/TypeScript app with fullscreen cue presentation, randomized
+delays, keyboard input, scoring, and local session history.
 
-Build a React/TypeScript app with fullscreen cue presentation, randomized delays, keyboard input, scoring, and local session history.
+(Unchanged — already shipped.)
 
-Acceptance criteria:
-
-- User can start a drill.
-- App presents randomized go/no-go cues.
-- User can respond with keyboard.
-- App records reaction time.
-- App displays rep result immediately.
-- App summarizes the session.
-- Session persists locally.
-
-## Phase 2: Drill Configuration
-
-Add configurable drill profiles.
+## Phase 2: Physical Input + Round Structure  [PRIORITY — target days 1–3]
+Make every rep require a physical commitment, and put reps inside a workout.
 
 Acceptance criteria:
+- USB foot pedal works as a configurable input (just maps to a key).
+- Phone-as-sensor mode: a companion page on a phone on local network sends
+  a "commit" event on accelerometer threshold (sharp forward step / punch
+  impulse). Pairing via QR code with local websocket or WebRTC DataChannel.
+- Keyboard input remains as a fallback, flagged in session metadata.
+- Session structure supports rounds: configurable work duration, rest
+  duration, and round count. Default 2:00 / 1:00 / 5 rounds.
+- Between cues, the app shows a continuous-motion indicator (soft pulsing
+  metronome or visual bounce) so the athlete is not standing still.
+- Pre-cue delay range upper bound configurable up to 8 s.
+- Optional penalty counter: false starts and hesitations add reps to a
+  during-rest clear-list.
 
-- User can create/edit drill profiles.
-- User can choose cue types.
-- User can set delay ranges.
-- User can set response windows.
-- User can set scoring rules.
+## Phase 3: Visuospatial Cues + Distance Axis  [PRIORITY — target days 3–6]
+Replace text cues with animated silhouettes/symbols and add the distance
+dimension.
 
-## Phase 3: Video Opponent Mode
+Acceptance criteria:
+- Each existing cue type has an SVG silhouette or symbol with a short
+  animation (steps in, lifts leg, drops hand, retreats, freezes, fake-step).
+- Text labels render only as an optional learning overlay.
+- Silhouette renders at three distance sizes: far / mid / in-range.
+- Drill profiles can enable the distance axis, where the same cue at
+  different ranges maps to different correct responses.
+- Optional continuous audio tone whose pitch tracks current rendered
+  distance.
+- Cue palette and animations are data-driven (JSON or TS map) so new cues
+  can be added without code changes.
 
+## Phase 4: Drill Configuration + Scoring Refinement  [target days 6–8]
+Make the engine configurable and tighten the scoring so it measures what
+the spec claims to measure.
+
+Acceptance criteria:
+- User can create / edit / save drill profiles.
+- Configurable per-profile: cue type set, delay range, late threshold,
+  hesitation threshold, response window, scoring weights, round structure,
+  distance axis on/off.
+- Hesitation detection uses an explicit, configurable RT band.
+- Choice-RT defaults: hesitation > 450 ms, late > 600 ms (tunable).
+- Per-cue-type RT and error-rate breakdown in the session summary.
+- Anti-rhythm detection: log false-start position in go/no-go sequences and
+  surface patterns (e.g. "you false-start most often after 3 consecutive
+  go cues").
+
+## Phase 5: Analytics and Competition / Taper Mode  [target days 8–10]
+Tournament-prep reporting and a low-volume high-speed mode for the final
+days before competition.
+
+Acceptance criteria:
+- App shows reaction time by cue type.
+- App shows false-start rate over time.
+- App shows hesitation rate over time.
+- App shows best-10-rep average and trend.
+- Taper mode profile: short rounds, low total volume, only the cues you
+  are slowest or least accurate on.
+- Session-over-session comparison view.
+
+## Phase 6: Video Opponent Mode  [post-tournament unless ahead of schedule]
 Add local video clip import and manual cue-time tagging.
 
 Acceptance criteria:
-
 - User can import local clips.
 - User can tag cue type and cue timestamp.
 - App can randomly play clips.
 - Reaction timer starts from cue timestamp.
 - Results are stored by clip and cue type.
 
-## Phase 4: Foot Pedal / External Input Support
+Rationale for deprioritization: building a usable clip library in two weeks
+is unrealistic, and animated silhouettes (Phase 3) capture most of the
+visuospatial transfer benefit at a fraction of the build cost.
 
-Improve physical usability in gym setting.
-
-Acceptance criteria:
-
-- Keyboard mappings are configurable.
-- Foot pedal works as keyboard input.
-- App supports fullscreen kiosk-like mode.
-- Large visual feedback works from training distance.
-
-## Phase 5: Webcam Pose Detection Prototype
-
+## Phase 7: Webcam Pose Detection Prototype  [post-tournament]
 Add optional webcam-based response detection.
 
-Acceptance criteria:
-
-- User can enable webcam mode.
-- App detects first meaningful movement.
-- Manual input remains available.
-- App compares manual vs detected reaction time.
-- Feature is marked experimental.
-
-## Phase 6: Analytics and Competition Mode
-
-Add tournament-prep reporting.
-
-Acceptance criteria:
-
-- App shows reaction time by cue type.
-- App shows false-start rate.
-- App shows hesitation rate.
-- App shows best 10-rep average.
-- App has a low-volume high-speed taper mode.
+(Acceptance criteria unchanged from original Phase 5.)
