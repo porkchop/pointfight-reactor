@@ -9,22 +9,33 @@ import { IdleScreen } from './ui/IdleScreen'
 import { TrainerScreen } from './ui/TrainerScreen'
 import { SummaryScreen } from './ui/SummaryScreen'
 import { SettingsScreen } from './ui/SettingsScreen'
+import { AnalyticsScreen } from './ui/AnalyticsScreen'
 import './App.css'
+
+type IdleView = 'idle' | 'settings' | 'analytics'
 
 function App() {
   const phase = useSession((s) => s.phase)
-  const [showSettings, setShowSettings] = useState(false)
+  const [view, setView] = useState<IdleView>('idle')
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
 
   useEffect(() => {
     void loadSettings().then(setSettings)
-  }, [showSettings])
+  }, [view])
 
-  if (showSettings) {
-    return <SettingsScreen onClose={() => setShowSettings(false)} />
+  if (view === 'settings') {
+    return <SettingsScreen onClose={() => setView('idle')} />
+  }
+  if (view === 'analytics') {
+    return <AnalyticsScreen onClose={() => setView('idle')} />
   }
   if (phase === 'idle')
-    return <IdleScreen onOpenSettings={() => setShowSettings(true)} />
+    return (
+      <IdleScreen
+        onOpenSettings={() => setView('settings')}
+        onOpenAnalytics={() => setView('analytics')}
+      />
+    )
   if (phase === 'ended') return <SummaryScreen />
   return (
     <TrainerScreen

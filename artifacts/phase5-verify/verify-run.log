@@ -1,0 +1,36 @@
+[verify] Configuring Default for fast sessions
+[verify] Running session 1
+[verify] Session 1 reps observed: 5
+[verify] Running session 2
+[verify] Session 2 reps observed: 5
+[verify] Sessions in DB: 2
+[verify] Opening Analytics screen
+[verify] C1 start
+[verify] C1 PASS
+[verify] C2 start
+[verify] C2 PASS
+[verify] C3 start
+[verify] C3 PASS
+[verify] C4 start
+[verify] C4 PASS
+[verify] C6 start
+[verify] C6 PASS
+[verify] C5 start
+[verify] Seeding synthetic sessions to satisfy taper eligibility (5 reps × 2 sessions per cue)
+[verify] Taper status {"info":"Taper profile created. slowest go cues: drops_lead_hand, lifts_lead_leg · weakest no-go cues: no_go_bait","warn":null}
+[verify] Active profile after taper build: Taper — 2026-05-26
+[verify] Taper fields: {"rounds":3,"workSec":60,"restSec":30,"cueRows":[{"label":"STEPS IN","checked":false},{"label":"BLITZES","checked":false},{"label":"LIFTS LEAD LEG","checked":true},{"label":"DROPS LEAD HAND","checked":true},{"label":"RETREATS","checked":false},{"label":"FREEZES","checked":false},{"label":"FAKE STEP","checked":false},{"label":"BAIT","checked":true}],"checkedCount":3,"uncheckedCount":5}
+[verify] C5 PASS
+[verify] Phase4 regression start
+[verify] Summary detail {"found":true,"cueHeaders":["Cue","Reps","Correct","FS","Hes","Late","Avg RT","Best-10 RT"],"cueRowCount":4,"rhythmPresent":true,"rhythmText":"No rhythm pattern detected."}
+[verify] Phase4Regression PASS
+
+=== SUMMARY ===
+C1: PASS
+C2: PASS
+C3: PASS
+C4: PASS
+C6: PASS
+C5: PASS
+Phase4Regression: PASS
+consoleErrors=0 networkErrors=0

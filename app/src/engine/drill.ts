@@ -223,6 +223,29 @@ export interface CueBreakdownRow {
   best10AvgRtMs: number | null
 }
 
+/**
+ * Mean of the (up to) 10 fastest values. Returns null if the input is empty.
+ * Phase 5 — single source of truth for the best-10 metric, used by
+ * cueBreakdown, sessionTrend (per-session best-10), and cueAggregate
+ * (cross-session best-10).
+ */
+export function best10AvgOf(times: number[]): number | null {
+  if (times.length === 0) return null
+  const sorted = [...times].sort((a, b) => a - b).slice(0, 10)
+  return Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length)
+}
+
+/**
+ * Reps whose result is correct_go AND whose reactionMs is a real number.
+ * Single source of truth for the "RT-eligible" rep set; reused by
+ * cueBreakdown here and by every analytics aggregate.
+ */
+export function correctGoTimesOf(reps: RepRecord[]): number[] {
+  return reps
+    .filter((r) => r.result === 'correct_go' && r.reactionMs !== null)
+    .map((r) => r.reactionMs as number)
+}
+
 export function cueBreakdown(reps: RepRecord[]): CueBreakdownRow[] {
   const byId = new Map<CueDef['id'], RepRecord[]>()
   for (const r of reps) {
@@ -231,20 +254,13 @@ export function cueBreakdown(reps: RepRecord[]): CueBreakdownRow[] {
     byId.set(r.cueId, list)
   }
   return Array.from(byId.entries()).map(([cueId, list]) => {
-    const correctGoTimes = list
-      .filter((r) => r.result === 'correct_go' && r.reactionMs !== null)
-      .map((r) => r.reactionMs as number)
+    const correctGoTimes = correctGoTimesOf(list)
     const avgRtMs =
       correctGoTimes.length === 0
         ? null
         : Math.round(
             correctGoTimes.reduce((a, b) => a + b, 0) / correctGoTimes.length,
           )
-    const sorted = [...correctGoTimes].sort((a, b) => a - b).slice(0, 10)
-    const best10AvgRtMs =
-      sorted.length === 0
-        ? null
-        : Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length)
     return {
       cueId,
       reps: list.length,
@@ -255,7 +271,7 @@ export function cueBreakdown(reps: RepRecord[]): CueBreakdownRow[] {
       hesitations: list.filter((r) => r.result === 'hesitation').length,
       lateMisses: list.filter((r) => r.result === 'late').length,
       avgRtMs,
-      best10AvgRtMs,
+      best10AvgRtMs: best10AvgOf(correctGoTimes),
     }
   })
 }

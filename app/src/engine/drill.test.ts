@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   antiRhythmSignal,
+  best10AvgOf,
   classifyPreCuePress,
   classifyRep,
   cueBreakdown,
@@ -638,5 +639,28 @@ describe('pendingPenalties', () => {
     const reps = [rep('false_start'), rep('hesitation')]
     expect(pendingPenalties(reps, 1, 1, 1)).toBe(1)
     expect(pendingPenalties(reps, 1, 1, 5)).toBe(0)
+  })
+})
+
+describe('best10AvgOf', () => {
+  it('returns null for empty input', () => {
+    expect(best10AvgOf([])).toBeNull()
+  })
+
+  it('returns the rounded mean when fewer than 10 values', () => {
+    expect(best10AvgOf([200, 300, 400])).toBe(300)
+  })
+
+  it('averages only the 10 fastest when more than 10 values', () => {
+    // 1..15 — fastest 10 are 1..10, mean = 5.5 → rounded 6
+    const times = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    expect(best10AvgOf(times)).toBe(6)
+  })
+
+  it('does not mutate the input array', () => {
+    const input = [400, 200, 300]
+    const before = [...input]
+    best10AvgOf(input)
+    expect(input).toEqual(before)
   })
 })

@@ -1,0 +1,325 @@
+{
+  "results": {
+    "C1": {
+      "pass": true,
+      "detail": {
+        "sectionFound": true,
+        "headers": [
+          "Cue",
+          "Reps",
+          "Avg RT",
+          "Best-10",
+          "Error rate",
+          "RT trend"
+        ],
+        "rowCount": 7,
+        "sampleRows": [
+          [
+            "STEPS IN go",
+            "2",
+            "334",
+            "334",
+            "50%",
+            "—"
+          ],
+          [
+            "BLITZES go",
+            "1",
+            "—",
+            "—",
+            "100%",
+            "—"
+          ],
+          [
+            "DROPS LEAD HAND go",
+            "2",
+            "—",
+            "—",
+            "100%",
+            "—"
+          ],
+          [
+            "RETREATS go",
+            "1",
+            "417",
+            "417",
+            "0%",
+            "—"
+          ],
+          [
+            "FREEZES go",
+            "1",
+            "—",
+            "—",
+            "100%",
+            "—"
+          ]
+        ],
+        "sparkCount": 0
+      }
+    },
+    "C2": {
+      "pass": true,
+      "detail": {
+        "sectionFound": true,
+        "sparkLabels": [
+          "Avg RT (ms)",
+          "Best-10 RT (ms)",
+          "False-start rate",
+          "Hesitation rate"
+        ],
+        "headers": [
+          "Session",
+          "Reps",
+          "Avg RT",
+          "Best-10",
+          "FS rate",
+          "Hes rate",
+          "Score"
+        ],
+        "rowCount": 2,
+        "sampleRows": [
+          [
+            "26/05/2026, 09:30:22",
+            "5",
+            "334",
+            "334",
+            "20%",
+            "0%",
+            "0"
+          ],
+          [
+            "26/05/2026, 09:30:36",
+            "5",
+            "417",
+            "417",
+            "20%",
+            "20%",
+            "-1"
+          ]
+        ]
+      }
+    },
+    "C3": {
+      "pass": true,
+      "detail": {
+        "hesRow": true,
+        "hesCol": true,
+        "rowCount": 2
+      }
+    },
+    "C4": {
+      "pass": true,
+      "detail": {
+        "best10Row": true,
+        "best10Col": true,
+        "best10NonEmpty": true
+      }
+    },
+    "C6": {
+      "pass": true,
+      "detail": {
+        "sectionFound": true,
+        "baselineCount": 2,
+        "candidateCount": 2,
+        "baselineVal": "a6e0d747-8e59-46a7-a117-713d31334c1e",
+        "candidateVal": "f95072c5-fbe8-4635-bad8-6ae000a73a16",
+        "deltaStats": [
+          {
+            "label": "Δ Avg RT",
+            "value": "+83 ms"
+          },
+          {
+            "label": "Δ Score",
+            "value": "-1"
+          },
+          {
+            "label": "Δ FS rate",
+            "value": "0 pts"
+          },
+          {
+            "label": "Δ Hes rate",
+            "value": "+20 pts"
+          }
+        ],
+        "compareHeaders": [
+          "Cue",
+          "Status",
+          "Δ RT",
+          "Δ Error rate"
+        ],
+        "compareRowCount": 7,
+        "sampleCompareRows": [
+          {
+            "cls": "compare-row compare-candidate_only",
+            "cells": [
+              "BLITZES",
+              "new cue this session",
+              "—",
+              "0 pts"
+            ]
+          },
+          {
+            "cls": "compare-row compare-both_error_only",
+            "cells": [
+              "DROPS LEAD HAND",
+              "no successful go reps",
+              "—",
+              "0 pts"
+            ]
+          },
+          {
+            "cls": "compare-row compare-both_error_only",
+            "cells": [
+              "FAKE STEP",
+              "no successful go reps",
+              "—",
+              "-100 pts"
+            ]
+          },
+          {
+            "cls": "compare-row compare-baseline_only",
+            "cells": [
+              "FREEZES",
+              "not drilled this session",
+              "—",
+              "0 pts"
+            ]
+          },
+          {
+            "cls": "compare-row compare-candidate_only",
+            "cells": [
+              "BAIT",
+              "new cue this session",
+              "—",
+              "0 pts"
+            ]
+          }
+        ],
+        "haveDeltas": true,
+        "haveCompareHeaders": true,
+        "defaultsDiffer": true
+      }
+    },
+    "C5": {
+      "pass": true,
+      "detail": {
+        "taperStatus": {
+          "info": "Taper profile created. slowest go cues: drops_lead_hand, lifts_lead_leg · weakest no-go cues: no_go_bait",
+          "warn": null
+        },
+        "activeNameAfter": "Taper — 2026-05-26",
+        "taperFields": {
+          "rounds": 3,
+          "workSec": 60,
+          "restSec": 30,
+          "cueRows": [
+            {
+              "label": "STEPS IN",
+              "checked": false
+            },
+            {
+              "label": "BLITZES",
+              "checked": false
+            },
+            {
+              "label": "LIFTS LEAD LEG",
+              "checked": true
+            },
+            {
+              "label": "DROPS LEAD HAND",
+              "checked": true
+            },
+            {
+              "label": "RETREATS",
+              "checked": false
+            },
+            {
+              "label": "FREEZES",
+              "checked": false
+            },
+            {
+              "label": "FAKE STEP",
+              "checked": false
+            },
+            {
+              "label": "BAIT",
+              "checked": true
+            }
+          ],
+          "checkedCount": 3,
+          "uncheckedCount": 5
+        },
+        "profilesBefore": [
+          "Default"
+        ],
+        "profilesAfter": [
+          "Taper — 2026-05-26",
+          "Default"
+        ],
+        "newProfileName": "Taper — 2026-05-26",
+        "newProfileConfig": {
+          "preCueMinMs": 500,
+          "preCueMaxMs": 600,
+          "responseWindowMs": 1200,
+          "hesitationThresholdMs": 450,
+          "lateThresholdMs": 600,
+          "goCueProbability": 0.7,
+          "maxReps": null,
+          "rounds": 3,
+          "workMs": 60000,
+          "restMs": 30000,
+          "penaltyCounterEnabled": false,
+          "perFalseStartPenalty": 1,
+          "perHesitationPenalty": 1,
+          "distanceAxisEnabled": false,
+          "audioToneEnabled": false,
+          "textOverlayEnabled": false,
+          "allowedCueIds": [
+            "drops_lead_hand",
+            "lifts_lead_leg",
+            "no_go_bait"
+          ],
+          "scoreWeights": {
+            "correct_go": 1,
+            "correct_no_go": 1,
+            "late": 0,
+            "false_start": -1,
+            "hesitation": -2
+          }
+        },
+        "taperRoundsOK": true,
+        "taperWorkOK": true,
+        "taperRestOK": true,
+        "taperSubsetOK": true,
+        "taperProfileCreated": true
+      }
+    },
+    "Phase4Regression": {
+      "pass": true,
+      "detail": {
+        "crudOK": true,
+        "summaryDetail": {
+          "found": true,
+          "cueHeaders": [
+            "Cue",
+            "Reps",
+            "Correct",
+            "FS",
+            "Hes",
+            "Late",
+            "Avg RT",
+            "Best-10 RT"
+          ],
+          "cueRowCount": 4,
+          "rhythmPresent": true,
+          "rhythmText": "No rhythm pattern detected."
+        },
+        "summaryHeadersOK": true,
+        "summaryRhythmOK": true
+      }
+    }
+  },
+  "consoleErrors": [],
+  "networkErrors": []
+}

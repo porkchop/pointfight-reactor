@@ -12,9 +12,10 @@ import type { SessionRecord } from '../engine/types'
 
 interface IdleScreenProps {
   onOpenSettings: () => void
+  onOpenAnalytics: () => void
 }
 
-export function IdleScreen({ onOpenSettings }: IdleScreenProps) {
+export function IdleScreen({ onOpenSettings, onOpenAnalytics }: IdleScreenProps) {
   const start = useSession((s) => s.start)
   const [recent, setRecent] = useState<SessionRecord[]>([])
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
@@ -63,9 +64,14 @@ export function IdleScreen({ onOpenSettings }: IdleScreenProps) {
         <kbd>Esc</kbd> to stop.
       </p>
 
-      <button type="button" className="link" onClick={onOpenSettings}>
-        Settings
-      </button>
+      <div className="idle-links">
+        <button type="button" className="link" onClick={onOpenSettings}>
+          Settings
+        </button>
+        <button type="button" className="link" onClick={onOpenAnalytics}>
+          Analytics
+        </button>
+      </div>
 
       {recent.length > 0 && (
         <div className="recent">

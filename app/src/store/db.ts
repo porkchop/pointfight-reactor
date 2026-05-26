@@ -81,3 +81,28 @@ export async function listRecentSessions(limit = 20): Promise<SessionRecord[]> {
     return []
   }
 }
+
+/**
+ * Bulk-fetch reps for a set of sessionIds, grouped by sessionId. Sessions in
+ * `sessionIds` that have no reps still appear in the result with an empty
+ * array — callers can rely on Map.get(id) returning [], not undefined.
+ */
+export async function listRepsForSessions(
+  sessionIds: string[],
+): Promise<Map<string, RepRecord[]>> {
+  const out = new Map<string, RepRecord[]>()
+  for (const id of sessionIds) out.set(id, [])
+  if (sessionIds.length === 0) return out
+  const db = getDb()
+  if (!db) return out
+  try {
+    const reps = await db.reps.where('sessionId').anyOf(sessionIds).toArray()
+    for (const r of reps) {
+      const list = out.get(r.sessionId)
+      if (list) list.push(r)
+    }
+  } catch {
+    /* fall through with whatever was groupable */
+  }
+  return out
+}

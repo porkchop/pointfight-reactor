@@ -15,6 +15,8 @@ import {
   type ProfileRecord,
 } from '../store/profiles'
 import { validateDrillConfig } from '../engine/drill'
+import { buildTaperProfileBlueprint } from '../engine/analytics'
+import { listRecentSessions, listRepsForSessions } from '../store/db'
 import { CUE_LIBRARY } from '../cues/library'
 import {
   DEFAULT_DRILL_CONFIG,
@@ -45,6 +47,8 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
   const [loaded, setLoaded] = useState(false)
   const [rebinding, setRebinding] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [taperReason, setTaperReason] = useState<string | null>(null)
+  const [taperError, setTaperError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -182,6 +186,41 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
     setProfile(remaining[0])
     setProfiles(remaining)
     setSettings((prev) => ({ ...prev, activeProfileId: remaining[0].id }))
+  }
+
+  async function handleBuildTaperProfile() {
+    const sessions = await listRecentSessions(5)
+    if (sessions.length === 0) {
+      setTaperError('No sessions yet — run a drill first.')
+      setTaperReason(null)
+      return
+    }
+    const reps = await listRepsForSessions(sessions.map((s) => s.id))
+    const blueprint = buildTaperProfileBlueprint(
+      sessions,
+      reps,
+      profile?.config ?? DEFAULT_DRILL_CONFIG,
+      3,
+    )
+    if (!blueprint) {
+      setTaperError(
+        'Not enough data to pick taper cues. Drill more variety first.',
+      )
+      setTaperReason(null)
+      return
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    const fresh = {
+      ...buildDefaultProfile(blueprint.config),
+      name: `Taper — ${today}`,
+    }
+    await saveProfile(fresh)
+    await setActiveProfile(fresh.id)
+    setProfile(fresh)
+    setProfiles((prev) => [...prev, fresh])
+    setSettings((prev) => ({ ...prev, activeProfileId: fresh.id }))
+    setTaperReason(blueprint.reason)
+    setTaperError(null)
   }
 
   if (!loaded || !profile) {
@@ -531,6 +570,30 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
             </label>
           </>
         )}
+      </section>
+
+      <section className="settings-section">
+        <h2>Taper mode</h2>
+        <p className="hint">
+          Auto-build a low-volume profile (3 × 60s work / 30s rest) using only
+          the cues you were slowest or least accurate on in the last 5
+          sessions.
+        </p>
+        <div className="profile-actions">
+          <button
+            type="button"
+            className="link"
+            onClick={() => void handleBuildTaperProfile()}
+          >
+            Build taper profile
+          </button>
+        </div>
+        {taperReason && (
+          <div className="banner info" role="status">
+            Taper profile created. {taperReason}
+          </div>
+        )}
+        {taperError && <div className="banner warn">{taperError}</div>}
       </section>
 
       {errors.length > 0 && (

@@ -616,3 +616,99 @@ kbd {
   margin: 0;
   font-size: 1.1rem;
 }
+
+/* ---- Analytics screen ---- */
+.screen.analytics {
+  align-items: stretch;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  gap: 1.2rem;
+}
+.analytics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.analytics-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+.analytics-section {
+  background: var(--gym-neutral);
+  padding: 1rem 1.2rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.analytics-section h2 {
+  margin: 0;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gym-muted);
+}
+.trend-spark-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.4rem 1.2rem;
+}
+.spark-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+  color: var(--gym-fg);
+}
+.spark-label {
+  color: var(--gym-muted);
+}
+.spark {
+  color: var(--gym-accent);
+}
+.spark-empty {
+  color: var(--gym-muted);
+  font-size: 0.9rem;
+}
+.compare-pickers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem 1rem;
+}
+.compare-pickers label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.95rem;
+  color: var(--gym-muted);
+}
+.compare-pickers select {
+  background: #0b1220;
+  color: var(--gym-fg);
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 1rem;
+}
+.compare-stats {
+  margin-top: 0.6rem;
+}
+.delta-good .stat-value { color: var(--gym-correct); }
+.delta-bad .stat-value  { color: var(--gym-bad); }
+.delta-neutral .stat-value { color: var(--gym-fg); }
+tr.compare-both_error_only td {
+  background: rgba(220, 38, 38, 0.12);
+}
+tr.compare-candidate_only td,
+tr.compare-baseline_only td {
+  color: var(--gym-muted);
+}
+.idle-links {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
