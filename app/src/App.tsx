@@ -21,6 +21,8 @@ type IdleView = 'idle' | 'settings' | 'analytics' | 'pair'
 function App() {
   const phase = useSession((s) => s.phase)
   const [view, setView] = useState<IdleView>('idle')
+  // Remember which view sent the user to pair so closing returns there.
+  const [pairOpener, setPairOpener] = useState<'idle' | 'settings'>('settings')
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
 
   useEffect(() => {
@@ -31,7 +33,10 @@ function App() {
     return (
       <SettingsScreen
         onClose={() => setView('idle')}
-        onOpenPair={() => setView('pair')}
+        onOpenPair={() => {
+          setPairOpener('settings')
+          setView('pair')
+        }}
       />
     )
   }
@@ -41,7 +46,7 @@ function App() {
   if (view === 'pair') {
     return (
       <Suspense fallback={<div className="screen">Loading pair UI…</div>}>
-        <PairScreen onClose={() => setView('settings')} />
+        <PairScreen onClose={() => setView(pairOpener)} />
       </Suspense>
     )
   }
@@ -50,6 +55,10 @@ function App() {
       <IdleScreen
         onOpenSettings={() => setView('settings')}
         onOpenAnalytics={() => setView('analytics')}
+        onOpenPair={() => {
+          setPairOpener('idle')
+          setView('pair')
+        }}
       />
     )
   if (phase === 'ended') return <SummaryScreen />

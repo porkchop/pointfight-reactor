@@ -295,9 +295,11 @@ export function SettingsScreen({ onClose, onOpenPair }: SettingsScreenProps) {
             onChange={(e) =>
               updateSettings('inputSource', e.target.value as InputSource)
             }
+            data-testid="input-source-select"
           >
             <option value="keyboard">Keyboard (fallback / dev)</option>
             <option value="pedal">Foot pedal</option>
+            <option value="phone">Phone (motion)</option>
           </select>
         </label>
         <label>
@@ -645,7 +647,12 @@ export function SettingsScreen({ onClose, onOpenPair }: SettingsScreenProps) {
       )}
 
       <div className="actions">
-        <button type="button" className="primary" onClick={() => void handleSave()}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => void handleSave()}
+          data-testid="settings-save"
+        >
           Save
         </button>
       </div>

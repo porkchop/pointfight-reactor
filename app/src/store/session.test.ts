@@ -180,6 +180,21 @@ describe('useSession store', () => {
     expect(useSession.getState().reps.at(-1)?.roundIndex).toBe(1)
   })
 
+  it("accepts 'phone' as an inputSource and stamps it on each rep", () => {
+    // Phase 2b.4 — InputSource union widening. Verifies the rep + session
+    // record both carry inputSource: 'phone'.
+    useSession.getState().start(
+      { goCueProbability: 1, rounds: 1, workMs: 0, restMs: 0 },
+      mulberry32(13),
+      'phone',
+    )
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 60)
+    expect(useSession.getState().reps.at(-1)?.inputSource).toBe('phone')
+    expect(useSession.getState().inputSource).toBe('phone')
+  })
+
   it('stamps a distance on the rep when distance axis is enabled', () => {
     useSession.getState().start(
       { distanceAxisEnabled: true, maxReps: 1 },

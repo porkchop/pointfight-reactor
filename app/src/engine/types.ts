@@ -41,7 +41,7 @@ export type RepResult =
   | 'false_start'
   | 'hesitation'
 
-export type InputSource = 'keyboard' | 'pedal'
+export type InputSource = 'keyboard' | 'pedal' | 'phone'
 
 export interface RepRecord {
   id: string

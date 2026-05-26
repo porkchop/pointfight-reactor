@@ -9,17 +9,25 @@ import {
 } from '../store/settings'
 import type { ProfileRecord } from '../store/profiles'
 import type { SessionRecord } from '../engine/types'
+import { usePhonePeer } from '../store/phone-peer'
 
 interface IdleScreenProps {
   onOpenSettings: () => void
   onOpenAnalytics: () => void
+  /** Phase 2b.4 — present so the "Phone not paired — pair now" banner button has a destination. */
+  onOpenPair?: () => void
 }
 
-export function IdleScreen({ onOpenSettings, onOpenAnalytics }: IdleScreenProps) {
+export function IdleScreen({
+  onOpenSettings,
+  onOpenAnalytics,
+  onOpenPair,
+}: IdleScreenProps) {
   const start = useSession((s) => s.start)
   const [recent, setRecent] = useState<SessionRecord[]>([])
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
   const [profile, setProfile] = useState<ProfileRecord | null>(null)
+  const phoneStatus = usePhonePeer((s) => s.status)
 
   useEffect(() => {
     void listRecentSessions(5).then(setRecent)
@@ -27,7 +35,12 @@ export function IdleScreen({ onOpenSettings, onOpenAnalytics }: IdleScreenProps)
     void loadActiveProfile().then(setProfile)
   }, [])
 
+  const phoneSelected = settings.inputSource === 'phone'
+  const phoneReady = phoneStatus === 'connected'
+  const startDisabled = !profile || (phoneSelected && !phoneReady)
+
   function handleStart() {
+    if (startDisabled) return
     void requestFullscreen()
     if (!profile) return
     start(profile.config, undefined, settings.inputSource)
@@ -44,6 +57,29 @@ export function IdleScreen({ onOpenSettings, onOpenAnalytics }: IdleScreenProps)
         </div>
       )}
 
+      {phoneSelected && !phoneReady && (
+        <div
+          className="banner warn"
+          role="status"
+          data-testid="phone-not-paired"
+        >
+          Phone not paired —{' '}
+          {onOpenPair ? (
+            <button
+              type="button"
+              className="link"
+              onClick={onOpenPair}
+              aria-label="pair phone now"
+            >
+              pair now
+            </button>
+          ) : (
+            <span>open Settings → Pair phone</span>
+          )}
+          .
+        </div>
+      )}
+
       {profile && (
         <p className="active-profile">
           Profile: <strong>{profile.name}</strong>
@@ -54,7 +90,7 @@ export function IdleScreen({ onOpenSettings, onOpenAnalytics }: IdleScreenProps)
         className="primary"
         type="button"
         onClick={handleStart}
-        disabled={!profile}
+        disabled={startDisabled}
         autoFocus
       >
         Start drill

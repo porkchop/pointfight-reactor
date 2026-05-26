@@ -1,0 +1,74 @@
+{
+  "phase": "phase-2b.4",
+  "startedAt": "2026-05-26T21:27:18.098Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "option_count": 1,
+      "option_text": "Phone (motion)"
+    },
+    "C2": {
+      "pass": true,
+      "banner_count": 1,
+      "start_disabled": true
+    },
+    "C3": {
+      "pass": true
+    },
+    "C4": {
+      "pass": true,
+      "banner_count": 0,
+      "start_enabled": true
+    },
+    "C5": {
+      "pass": false,
+      "best_effort": true,
+      "note": "Disconnect button only renders when peerState === connected; headless chromium without UDP cannot reach it. Manual M1 covers the real-device path."
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Pair phone → connected → close PairScreen → phone-peer slice still reports connected (peer outlives view).",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "With inputSource='phone' and peer connected, Idle's Start drill is enabled; click Start.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Drill runs. Forward-snap impulses on phone register as reps in the trainer.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "Saved SessionRecord.inputSource === 'phone'; visible in SummaryScreen + IdleScreen 'Recent sessions' list.",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "Disconnect phone mid-drill → TrainerScreen shows \"Phone disconnected\" banner; no new commits register.",
+      "signed_off": null
+    },
+    {
+      "id": "M6",
+      "description": "IdleScreen \"pair now\" → PairScreen → close returns to Idle (not Settings).",
+      "signed_off": null
+    },
+    {
+      "id": "M7",
+      "description": "Settings \"Pair phone\" → PairScreen → close returns to Settings.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-26T21:27:28.037Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "best_effort_pass": false,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

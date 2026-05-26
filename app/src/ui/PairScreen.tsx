@@ -8,6 +8,11 @@ import type { PhoneMessage } from '../phone/wire'
 import { loadActiveProfile, loadSettings } from '../store/settings'
 import { DEFAULT_DEBOUNCE_MS, getActiveThresholdG } from '../phone/motion'
 import type { ProfileRecord } from '../store/profiles'
+import {
+  attachPhonePeer,
+  detachPhonePeer,
+  getActivePhonePeer,
+} from '../store/phone-peer'
 import { CalibrateScreen } from './CalibrateScreen'
 
 interface PairScreenProps {
@@ -42,6 +47,11 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const scanRafRef = useRef<number | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  // PairScreen-local listeners must outlive the peer creation hop but be
+  // detached on unmount (or when re-binding to a different peer). Without
+  // this we'd stack a fresh pair of listeners on every reopen.
+  const offStateRef = useRef<(() => void) | null>(null)
+  const offMsgRef = useRef<(() => void) | null>(null)
 
   const [mode, setMode] = useState<PairMode>('qr')
   const [qrState, setQrState] = useState<PairQrState>('preparing-offer')
@@ -64,6 +74,54 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
   // --- Setup: load settings, create peer, generate offer, attempt QR ---
   useEffect(() => {
     let cancelled = false
+
+    function unbindLocal(): void {
+      offStateRef.current?.()
+      offMsgRef.current?.()
+      offStateRef.current = null
+      offMsgRef.current = null
+    }
+
+    function bindLocal(
+      peer: PeerHandle,
+      profile: ProfileRecord,
+      sendArmedOnConnect: boolean,
+    ): void {
+      unbindLocal()
+      offStateRef.current = peer.onStateChange((next) => {
+        if (cancelled) return
+        setPeerState(next)
+        if (next === 'connected') {
+          setQrState('connected')
+          // Reset the RTT baseline so "Last commit received at +Xms" is the
+          // pure phone→laptop send time the M5 manual gate budgets at <200ms.
+          setStartedAt(Date.now())
+          if (sendArmedOnConnect) {
+            // Hand the phone the per-athlete threshold so the motion runner
+            // (Phase 2b.3) arms with the right value the moment the
+            // DataChannel opens. Only fire on the create-new-peer branch;
+            // the reuse branch enters with the peer already configured.
+            try {
+              peer.send({
+                type: 'config',
+                thresholdG: getActiveThresholdG(profile),
+                debounceMs: DEFAULT_DEBOUNCE_MS,
+                mode: 'armed',
+              })
+            } catch {
+              /* peer not actually open yet — phone defaults to armed anyway */
+            }
+          }
+        }
+      })
+      offMsgRef.current = peer.onMessage((m: PhoneMessage) => {
+        if (cancelled) return
+        if (m.type === 'commit') {
+          setLastCommit({ receivedAt: Date.now(), sentAt: m.t })
+        }
+      })
+    }
+
     void (async () => {
       const [s, profile] = await Promise.all([
         loadSettings(),
@@ -74,37 +132,26 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
       setLanIp(ip || null)
       setActiveProfile(profile)
 
+      // Reuse an in-flight or connected peer so the athlete can reopen
+      // PairScreen (e.g. to recalibrate, to inspect status) without tearing
+      // down their pairing. Per decision-memo §2b.4, the peer's lifetime is
+      // owned by the phone-peer slice, not by PairScreen's mount.
+      const existing = getActivePhonePeer()
+      if (existing && existing.state !== 'closed' && existing.state !== 'error') {
+        peerRef.current = existing
+        bindLocal(existing, profile, false)
+        setPeerState(existing.state)
+        if (existing.state === 'connected') {
+          setQrState('connected')
+          setStartedAt(Date.now())
+        }
+        return
+      }
+
       const peer = createPeer()
       peerRef.current = peer
-      peer.onStateChange((next) => {
-        if (cancelled) return
-        setPeerState(next)
-        if (next === 'connected') {
-          setQrState('connected')
-          // Reset the RTT baseline so "Last commit received at +Xms" is the
-          // pure phone→laptop send time the M5 manual gate budgets at <200ms,
-          // not the offer-creation + scan + handshake elapsed.
-          setStartedAt(Date.now())
-          // Hand the phone the per-athlete threshold so the motion runner
-          // (Phase 2b.3) arms with the right value the moment the
-          // DataChannel opens. No threshold yet → use the default.
-          try {
-            peer.send({
-              type: 'config',
-              thresholdG: getActiveThresholdG(profile),
-              debounceMs: DEFAULT_DEBOUNCE_MS,
-              mode: 'armed',
-            })
-          } catch {
-            /* peer not actually open yet — phone defaults to armed anyway */
-          }
-        }
-      })
-      peer.onMessage((m: PhoneMessage) => {
-        if (m.type === 'commit') {
-          setLastCommit({ receivedAt: Date.now(), sentAt: m.t })
-        }
-      })
+      attachPhonePeer(peer)
+      bindLocal(peer, profile, true)
 
       setStartedAt(Date.now())
       try {
@@ -146,9 +193,28 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
     return () => {
       cancelled = true
       stopScanning()
-      peerRef.current?.close()
+      unbindLocal()
+      // Peer lifetime is owned by the phone-peer slice, not PairScreen —
+      // closing here would tear down a pairing the athlete needs to drill
+      // with. Explicit disconnect is exposed via `handleDisconnect`.
     }
   }, [])
+
+  function handleDisconnect(): void {
+    offStateRef.current?.()
+    offMsgRef.current?.()
+    offStateRef.current = null
+    offMsgRef.current = null
+    detachPhonePeer()
+    peerRef.current = null
+    setPeerState('idle')
+    setQrState('preparing-offer')
+    setOfferSdp('')
+    setAnswerSdp('')
+    setPhoneUrl(null)
+    setLastCommit(null)
+    setStartedAt(null)
+  }
 
   // --- Draw the offer QR onto its canvas once we have a phoneUrl ---
   useEffect(() => {
@@ -354,6 +420,16 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
             Last commit received at +{sinceStart}ms (phone clock t=
             {lastCommit.sentAt}).
           </p>
+        )}
+        {peerState === 'connected' && (
+          <button
+            type="button"
+            className="link"
+            onClick={handleDisconnect}
+            aria-label="disconnect phone"
+          >
+            Disconnect phone
+          </button>
         )}
       </section>
 

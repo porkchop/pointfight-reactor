@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSession } from '../store/session'
 import { pendingPenalties } from '../engine/drill'
 import type { RepResult } from '../engine/types'
 import { CueStage } from './CueStage'
 import { RestScreen } from './RestScreen'
 import { startDistanceTone, stopDistanceTone } from '../audio/distanceTone'
+import { usePhonePeer } from '../store/phone-peer'
 
 const FEEDBACK_HOLD_MS = 1000
 
@@ -25,29 +26,57 @@ export function TrainerScreen({
   const roundIndex = useSession((s) => s.roundIndex)
   const workEndAt = useSession((s) => s.workEndAt)
   const cleared = useSession((s) => s.cleared)
+  const inputSource = useSession((s) => s.inputSource)
   const revealCue = useSession((s) => s.revealCue)
   const recordPress = useSession((s) => s.recordPress)
   const finishWindow = useSession((s) => s.finishWindow)
   const acknowledgeFeedback = useSession((s) => s.acknowledgeFeedback)
   const stop = useSession((s) => s.stop)
+  const phoneStatus = usePhonePeer((s) => s.status)
+
+  // phaseRef keeps the commit dispatcher stable across phase transitions —
+  // otherwise the phone-peer onCommit subscription would re-bind on every
+  // rep, churning the slice's handler set. Keyboard's listener doesn't need
+  // the ref but reads through it for symmetry.
+  const phaseRef = useRef(phase)
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
+  const dispatchCommit = useCallback(
+    (at: number) => {
+      const p = phaseRef.current
+      if (p === 'waiting' || p === 'showing') {
+        recordPress(at)
+      } else if (p === 'feedback') {
+        acknowledgeFeedback()
+      }
+    },
+    [recordPress, acknowledgeFeedback],
+  )
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
       if (e.code === commitKeyCode) {
         e.preventDefault()
-        if (phase === 'waiting' || phase === 'showing') {
-          recordPress(performance.now())
-        } else if (phase === 'feedback') {
-          acknowledgeFeedback()
-        }
+        dispatchCommit(performance.now())
       } else if (e.key === 'Escape') {
         stop()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [phase, commitKeyCode, recordPress, acknowledgeFeedback, stop])
+  }, [commitKeyCode, dispatchCommit, stop])
+
+  // Phase 2b.4 — phone-as-input. Phone commits route through the same
+  // dispatchCommit the keyboard handler uses so the drill engine's logic
+  // (waiting → showing → feedback, hesitation/late thresholds, false-start
+  // classification) applies identically across input sources.
+  useEffect(() => {
+    if (inputSource !== 'phone') return
+    return usePhonePeer.getState().onCommit((c) => dispatchCommit(c.receivedAt))
+  }, [inputSource, dispatchCommit])
 
   useEffect(() => {
     if (phase !== 'waiting' || !current || current.cueShownAt !== null) return
@@ -98,12 +127,24 @@ export function TrainerScreen({
       )
     : 0
 
+  const phoneDropped =
+    inputSource === 'phone' && phoneStatus !== 'connected'
+
   return (
     <div
       className={`screen trainer trainer-${
         phase === 'feedback' && feedback ? feedback.rep.result : phase
       }`}
     >
+      {phoneDropped && (
+        <div
+          className="banner warn"
+          role="alert"
+          data-testid="phone-dropped"
+        >
+          Phone disconnected ({phoneStatus}) — reconnect to continue.
+        </div>
+      )}
       <header className="hud">
         <span>
           Round {roundIndex + 1}/{config.rounds}

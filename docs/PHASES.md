@@ -115,7 +115,7 @@ Acceptance criteria:
 - Android Chrome over plain HTTP: works without permission prompts.
 - Manual real-device QA at `app/verify-phase-2b3.mjs`.
 
-### Phase 2b.4: Wire `inputSource = 'phone'` into engine + sessions
+### Phase 2b.4: Wire `inputSource = 'phone'` into engine + sessions ✅ shipped
 Add `'phone'` to the `InputSource` union; expose phone selection in
 Settings; gate Idle/Start on a paired-phone pre-flight; subscribe the
 TrainerScreen to the DataChannel and route `commit` messages through
