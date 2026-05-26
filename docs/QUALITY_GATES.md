@@ -42,6 +42,16 @@ When coverage tooling is available in the target project, aim for meaningful bra
 
 "Relevant tests pass" (from the universal gate) means: tests exist that would fail if the feature were removed or the bug fix reverted.
 
+### Browser-API limitations (Phase 2b)
+
+Some browser APIs (notably `RTCPeerConnection` / WebRTC DataChannel, `navigator.mediaDevices.getUserMedia`, and `DeviceMotionEvent`) cannot be exercised reliably under jsdom or headless Playwright in this project's test environment. Phase 2b's transport handshake and motion-sensor logic are split accordingly:
+
+- **Pure-logic modules** (peer state machine, wire format, motion impulse detection, calibration math) remain fully unit-tested under vitest with stubbed browser APIs. These tests gate the testing-gate's "would fail if reverted" rule.
+- **Transport handshake and live sensor input** are gated by a per-sub-phase manual real-device QA script (`app/verify-phase-2b{1,2,3,4}.mjs`) — same pattern as the existing `verify-phase{4,5}.mjs` flows.
+- Each Phase 2b sub-phase approval artifact must include a `manual_qa` field naming the device used and the steps performed; without it, the phase is not approved.
+
+This is a scoped concession, not a general gate relaxation. See `artifacts/decision-memo.md` §B2 for the full reasoning.
+
 ## DRY and reuse gate
 - business rules and validation logic must exist in exactly one place
 - if the same logic appears in more than one layer, extract it to a shared module or justify the duplication in a decision memo

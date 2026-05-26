@@ -10,9 +10,10 @@ import { TrainerScreen } from './ui/TrainerScreen'
 import { SummaryScreen } from './ui/SummaryScreen'
 import { SettingsScreen } from './ui/SettingsScreen'
 import { AnalyticsScreen } from './ui/AnalyticsScreen'
+import { PairScreen } from './ui/PairScreen'
 import './App.css'
 
-type IdleView = 'idle' | 'settings' | 'analytics'
+type IdleView = 'idle' | 'settings' | 'analytics' | 'pair'
 
 function App() {
   const phase = useSession((s) => s.phase)
@@ -24,10 +25,18 @@ function App() {
   }, [view])
 
   if (view === 'settings') {
-    return <SettingsScreen onClose={() => setView('idle')} />
+    return (
+      <SettingsScreen
+        onClose={() => setView('idle')}
+        onOpenPair={() => setView('pair')}
+      />
+    )
   }
   if (view === 'analytics') {
     return <AnalyticsScreen onClose={() => setView('idle')} />
+  }
+  if (view === 'pair') {
+    return <PairScreen onClose={() => setView('settings')} />
   }
   if (phase === 'idle')
     return (

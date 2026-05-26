@@ -74,6 +74,15 @@ describe('settings store', () => {
     expect((s as unknown as { workMs?: number }).workMs).toBeUndefined()
   })
 
+  it('round-trips the optional Phase 2b.1 laptopLanIp field', async () => {
+    await saveSettings({
+      ...DEFAULT_SETTINGS,
+      laptopLanIp: '192.168.1.42',
+    })
+    const s = await loadSettings()
+    expect(s.laptopLanIp).toBe('192.168.1.42')
+  })
+
   it('migrates legacy drill fields into a seeded Default profile on first run', async () => {
     const db = getDb()
     if (!db) throw new Error('db unavailable')

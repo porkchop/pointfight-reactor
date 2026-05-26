@@ -1,0 +1,67 @@
+{
+  "phase": "phase-2b.1",
+  "startedAt": "2026-05-26T18:07:14.985Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "observed_state": "idle"
+    },
+    "C2": {
+      "pass": true
+    },
+    "C3": {
+      "pass": true,
+      "observed": {
+        "id": "singleton",
+        "commitKeyCode": "Space",
+        "commitKeyLabel": "Space",
+        "inputSource": "keyboard",
+        "activeProfileId": "62dfb7d8-4767-4bf8-81cb-17f32151b06b",
+        "laptopLanIp": "192.168.1.42"
+      }
+    },
+    "C4": {
+      "pass": true,
+      "phone_url_shown": "http://192.168.1.42:5173/phone"
+    },
+    "C5": {
+      "pass": false,
+      "reason": "WebRTC handshake did not complete in automated run — covered by manual QA. Underlying error: page.waitForFunction: Timeout 30000ms exceeded."
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Phone on same LAN reaches http://<laptopLanIp>:5173/phone and renders PhoneApp.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Laptop \"Generate offer\" button populates the offer textarea within 5s.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Phone \"Generate answer\" populates the answer textarea within 5s after pasting the offer.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "After pasting the answer back to the laptop and clicking Connect, both screens reach state=\"connected\" within 5s.",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "Phone \"Send commit\" causes the laptop to render \"Last commit received at +Xms\" with X < 200.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-26T18:07:46.831Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "c5_best_effort_pass": false,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

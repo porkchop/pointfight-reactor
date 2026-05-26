@@ -6,6 +6,12 @@ export interface SettingsRecord {
   commitKeyLabel: string
   inputSource: InputSource
   activeProfileId?: string
+  /**
+   * Laptop's LAN IP address used to build the phone companion URL
+   * (`http://<laptopLanIp>:5173/phone`). Optional — only set when the
+   * athlete intends to use Phase 2b phone-as-sensor.
+   */
+  laptopLanIp?: string
 }
 
 export const DEFAULT_SETTINGS: SettingsRecord = {

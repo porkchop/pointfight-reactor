@@ -24,11 +24,22 @@ export async function loadSettings(): Promise<SettingsRecord> {
     const row = await db.settings.get('singleton')
     if (!row) return DEFAULT_SETTINGS
     // Strip any legacy drill fields when returning to callers.
-    const { id, commitKeyCode, commitKeyLabel, inputSource, activeProfileId } = {
-      ...DEFAULT_SETTINGS,
-      ...row,
+    const {
+      id,
+      commitKeyCode,
+      commitKeyLabel,
+      inputSource,
+      activeProfileId,
+      laptopLanIp,
+    } = { ...DEFAULT_SETTINGS, ...row }
+    return {
+      id,
+      commitKeyCode,
+      commitKeyLabel,
+      inputSource,
+      activeProfileId,
+      laptopLanIp,
     }
-    return { id, commitKeyCode, commitKeyLabel, inputSource, activeProfileId }
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -39,13 +50,21 @@ export async function saveSettings(s: SettingsRecord): Promise<void> {
   if (!db) return
   try {
     // Only write the slim shape — never re-persist legacy drill fields.
-    const { id, commitKeyCode, commitKeyLabel, inputSource, activeProfileId } = s
+    const {
+      id,
+      commitKeyCode,
+      commitKeyLabel,
+      inputSource,
+      activeProfileId,
+      laptopLanIp,
+    } = s
     await db.settings.put({
       id,
       commitKeyCode,
       commitKeyLabel,
       inputSource,
       ...(activeProfileId !== undefined ? { activeProfileId } : {}),
+      ...(laptopLanIp !== undefined ? { laptopLanIp } : {}),
     })
   } catch {
     /* ignore */

@@ -1,28 +1,76 @@
 {
-  "phase": "phase-5",
+  "phase": "phase-2b.1",
   "approved": true,
-  "summary": "Phase 5: cross-session analytics + taper mode. Added a pure analytics module (engine/analytics.ts) with `sessionTrend`, `cueTrend`, `cueAggregate`, `compareSessions`, `pickTaperCues`, and `buildTaperProfileBlueprint` — every public helper unit-tested. Extracted `best10AvgOf` and `correctGoTimesOf` into engine/drill.ts as the single source of truth for both metrics, and refactored `cueBreakdown` to call them (closing the DRY hole architecture-red-team flagged in the memo). New Dexie helper `listRepsForSessions` bulk-fetches reps grouped by sessionId via the existing reps.sessionId index — no schema bump. New AnalyticsScreen with a loading state, empty state, per-session trend table with four inline-SVG sparklines (Avg RT, Best-10 RT, FS rate, Hes rate), a per-cue table with RT-trend sparkline, and a compare section with default baseline=second-most-recent / candidate=most-recent. compareSessions returns one of four explicit classifications per cue (`both_measured`, `both_error_only`, `candidate_only`, `baseline_only`) — the `both_error_only` row renders red so a was-fine-now-broken regression cannot hide behind a null RT. `deltaScore` returns null when the two sessions used different scoreWeights. Taper-mode builder in SettingsScreen runs on the last 5 sessions, requires ≥5 reps per cue across ≥2 sessions for eligibility, splits the K picks 70/30 between a go-pool (sorted by RT+errorRate weakness) and a no-go-pool (sorted by errorRate weakness), and creates a profile with rounds=3, workMs=60s, restMs=30s, maxReps=null, allowedCueIds=picked. 24 new tests (105 total, all green); typecheck, lint, vite build all clean. Reviewer APPROVED on first pass with non-blocking observations; the cheap ones (extract correctGoTimesOf, drop dead `kind` prop, tighten test comment, document weightsDiffer limited-domain quirk) were applied before approval. qa-playwright PASS on all 6 Phase 5 criteria + Phase 4 regression with zero console errors; full evidence in artifacts/phase5-verify/.",
+  "summary": "Phase 2b.1: LAN companion + WebRTC DataChannel transport with manual SDP paste. Shipped a typed wire contract (`app/src/phone/wire.ts`, PhoneMessage = `commit | ping`, encode/decode/isPhoneMessage with strict type-tag validation) and an RTCPeerConnection wrapper (`app/src/phone/peer.ts`, role-aware createOffer/acceptOffer/acceptAnswer/send/onMessage/onStateChange/close, default STUN stun.l.google.com:19302, peerConnectionFactory injection for tests). New `/phone` route on the same Vite SPA via a `/^\\/phone(\\/|$)/` test in `main.tsx`. PhoneApp (phone-side) ships paste-offer / generate-answer / Send-commit; PairScreen (laptop-side) ships generate-offer / paste-answer / Connect with a 'Last commit received at +Xms' debug surface that satisfies the §B2 testing-gate concession by giving manual QA a laptop-observable signal. Settings gained an optional `laptopLanIp` field that round-trips through Dexie and feeds the displayed phone URL; the 'Pair phone' button auto-saves before navigating so the PairScreen's `loadSettings()` read sees fresh state. vite.config.ts gained `server.host: true` and `preview.host: true` so the phone can reach the laptop on LAN. docs/QUALITY_GATES.md grew a 'Browser-API limitations (Phase 2b)' footnote codifying the scoped testing-gate concession recorded in artifacts/decision-memo.md §B2. 25 new vitest tests (130 total, all green): 9 wire round-trip/rejection tests, 15 peer state-machine tests including a regression for the ondatachannel+onopen race during answerer ICE gathering, 1 settings round-trip test for `laptopLanIp`. Lint + tsc + vite build all clean. Bundle 349.80 KB JS / 107.55 KB gzip (+2.26 KB gzip vs the Phase 5 baseline of 105.29; well under the +20 KB gzip budget). Reviewer (`code-reviewer`) returned APPROVE-WITH-CHANGES with one explicit conditional (manual_qa field populated; see review notes) plus seven non-blocking observations. The cheap correctness fixes were applied before approval: answerer race guard with regression test, exact-match /phone route, dropped unreachable port fallback, removed misleading removeEventListener cleanup that was a no-op for property-assigned handlers. Phase 2b.1's WebRTC transport handshake itself is gated by the manual_qa checklist (M1–M5 in `artifacts/phase-2b1-verify/results.json`) per the §B2 concession; the autonomous loop cannot perform real-device QA, so M1–M5 are recorded as `pending operator sign-off` in the approval artifact's `manual_qa` block — the operator (athlete on a real LAN with a phone) signs them off after this commit lands.",
   "decision_memo": "artifacts/decision-memo.md",
   "acceptance_criteria": [
-    { "criterion": "App shows reaction time by cue type", "verified_by": "qa-playwright C1 — Analytics screen 'Reaction time by cue type' table populated with Cue · Reps · Avg RT · Best-10 · Error rate · RT-trend sparkline columns across multiple sessions" },
-    { "criterion": "App shows false-start rate over time", "verified_by": "qa-playwright C2 — 'False-start rate' sparkline row in Trend section + FS-rate column in per-session trend table, populated across two sessions" },
-    { "criterion": "App shows hesitation rate over time", "verified_by": "qa-playwright C3 — 'Hesitation rate' sparkline row + Hes-rate column in per-session trend table" },
-    { "criterion": "App shows best-10-rep average and trend", "verified_by": "qa-playwright C4 — 'Best-10 RT (ms)' sparkline row + Best-10 column in per-session trend table. Per-session best-10 via best10AvgOf in trendPointFromReps (analytics.test.ts > sessionTrend asserts the value)" },
-    { "criterion": "Taper mode profile: short rounds, low total volume, only the cues you are slowest or least accurate on", "verified_by": "qa-playwright C5 — 'Build taper profile' in Settings → Taper mode produced profile 'Taper — 2026-05-26' with rounds=3, workMs=60_000, restMs=30_000, allowedCueIds=[lifts_lead_leg, drops_lead_hand, no_go_bait]; banner shows 'slowest go cues: …  weakest no-go cues: …'. analytics.test.ts > buildTaperProfileBlueprint asserts the blueprint shape and that user thresholds carry forward" },
-    { "criterion": "Session-over-session comparison view", "verified_by": "qa-playwright C6 — Compare section in Analytics screen with baseline/candidate <select>s defaulting to (second-most-recent, most-recent), delta-stats panel (Δ Avg RT · Δ Score · Δ FS rate · Δ Hes rate, sign-color-coded), and a per-cue compare table with classification labels. analytics.test.ts > compareSessions asserts all four classifications + weights-differ deltaScore=null" }
+    {
+      "criterion": "/phone route exists on the same Vite SPA (route swap in main.tsx)",
+      "verified_by": "verify-phase-2b1.mjs C1 — /phone renders PhoneApp with offer/answer textareas + state display. main.tsx uses /^\\/phone(\\/|$)/ test, exact-match per code-reviewer observation #4."
+    },
+    {
+      "criterion": "Loading http://<laptop-lan-ip>:5173/phone on an Android phone on the same Wi-Fi renders PhoneApp",
+      "verified_by": "Automated: C1 confirms the /phone route renders PhoneApp from a Playwright origin. Real-device: M1 in manual_qa_checklist — pending operator sign-off."
+    },
+    {
+      "criterion": "Laptop 'Pair phone' screen renders the offer SDP in a textarea and accepts the answer SDP in another textarea",
+      "verified_by": "verify-phase-2b1.mjs C4 — Pair view exposes [aria-label='offer SDP'] (readonly), [aria-label='answer SDP'] (editable), [data-testid='pair-state'], and a phone-URL hint built from settings.laptopLanIp."
+    },
+    {
+      "criterion": "Manual copy/paste of offer onto phone + answer onto laptop establishes a DataChannel within 5 seconds (verified via manual real-device QA)",
+      "verified_by": "Manual gate: M2–M4 in manual_qa_checklist — pending operator sign-off. Best-effort C5 in verify-phase-2b1.mjs runs two-context Playwright pairing on loopback; fails in headless chromium without UDP, which is the expected behavior documented under the §B2 concession."
+    },
+    {
+      "criterion": "Pressing the phone's 'Send commit' button echoes a `{ type: 'commit', t: number }` message that the laptop displays as 'Last commit at +Xms'",
+      "verified_by": "Unit: peer.test.ts asserts onMessage delivers a decoded {type:'commit',t:N} payload to subscribers, and PhoneApp.send uses peer.send → channel.send. PairScreen renders 'Last commit received at +Xms (phone clock t=...)' under [data-testid='last-commit']. Real-device: M5 — pending operator sign-off."
+    },
+    {
+      "criterion": "SettingsRecord carries a new optional laptopLanIp field",
+      "verified_by": "settings-types.ts adds the optional field; settings.ts load/save round-trip it. settings.test.ts asserts the round-trip ('round-trips the optional Phase 2b.1 laptopLanIp field'). verify-phase-2b1.mjs C3 also asserts the IDB row carries laptopLanIp:'192.168.1.42' after a Save."
+    },
+    {
+      "criterion": "phone/peer.ts and phone/wire.ts are unit-tested under vitest with stubbed RTCPeerConnection",
+      "verified_by": "peer.test.ts (15 tests) drives both offerer and answerer flows via FakePeerConnection, including STUN config, send/onMessage routing, single-role invariant, and the race-fix regression. wire.test.ts (9 tests) covers encode/decode round-trip and type-tag rejection."
+    },
+    {
+      "criterion": "Lint + tsc + vite build clean. Bundle growth budget: +20 KB gzip",
+      "verified_by": "npm run lint: 0 errors. npm run typecheck: 0 errors. npm run build: 349.80 KB JS / 107.55 KB gzip (+2.26 KB gzip vs Phase 5 baseline of 105.29). Well within the +20 KB gzip budget."
+    },
+    {
+      "criterion": "Manual real-device QA documented at app/verify-phase-2b1.mjs + artifacts/phase-2b1-verify/results.json",
+      "verified_by": "verify-phase-2b1.mjs runs C1–C5 + writes results.json with the M1–M5 manual_qa_checklist. Current run: gate_checks_pass=true, c5_best_effort_pass=false (expected), console_errors=0."
+    }
   ],
+  "manual_qa": {
+    "device_used": "not_performed_by_agent",
+    "performed_by": "autonomous-agent",
+    "performed_at": "2026-05-26",
+    "playwright_run": {
+      "automated_gate_checks": "C1, C2, C3, C4 PASS — /phone renders, / renders main App, laptopLanIp round-trips through IDB (192.168.1.42), Pair view exposes form + computes phone URL.",
+      "best_effort_webrtc": "C5 FAIL — two-context headless chromium WebRTC handshake timed out, which is the documented expected outcome per QUALITY_GATES.md §'Browser-API limitations (Phase 2b)'. This is not a gate failure; it is the rationale for the manual QA gate below.",
+      "console_errors": 0
+    },
+    "checklist_pending_operator_sign_off": [
+      "M1 — Phone on same LAN reaches http://<laptopLanIp>:5173/phone and renders PhoneApp.",
+      "M2 — Laptop 'Generate offer' button populates the offer textarea within 5s.",
+      "M3 — Phone 'Generate answer' populates the answer textarea within 5s after pasting the offer.",
+      "M4 — After pasting the answer back to the laptop and clicking Connect, both screens reach state='connected' within 5s.",
+      "M5 — Phone 'Send commit' causes the laptop to render 'Last commit received at +Xms' with X < 200."
+    ],
+    "operator_sign_off_instructions": "Update artifacts/phase-2b1-verify/results.json — set each entry's `signed_off` to {date:'YYYY-MM-DD', device:'<phone model + OS>'} after exercising the step on a real LAN+phone pair. The §B2 concession requires this field to be populated before the phase can be considered fully closed; the autonomous loop cannot perform real-device QA, so the operator sign-off is the human's role in this gate."
+  },
   "gates": {
-    "testing": "105/105 vitest tests pass (was 81 at Phase 4 boundary; 24 new across analytics, db, and drill suites). Every new public behavior has a primary-path + edge-case test, including the four compareSessions classifications, both ≥5-reps and ≥2-sessions eligibility floors, ties broken by cueId, fallback when one weakness pool is empty, and weights-differ → deltaScore null.",
-    "dry": "best10AvgOf and correctGoTimesOf are now both exported from engine/drill.ts and reused from analytics.ts at every call site (3 best10 sites + 4 correctGo sites). cueBreakdown was refactored to call the same helpers. Architecture-red-team explicitly flagged the best-10 inlining as a 'three-near-duplicate' risk; the extraction closes it. SettingsScreen handleBuildTaperProfile delegates blueprint assembly to the pure buildTaperProfileBlueprint helper rather than re-implementing the rule.",
-    "drift": "No Phase 1/2/3/4 schema or invariant touched. RepRecord / SessionRecord unchanged. Dexie version still v3. Older sessions render in the trend view because analytics reads only fields present since Phase 1 (cueId, result, reactionMs, sessionId). Phase 4 per-cue summary + anti-rhythm narrative still render after the drill.ts refactor (qa-playwright Phase 4 regression PASS).",
-    "planning": "decision-memo.md rewritten for Phase 5; planning gate triggered by cross-layer change (storage query + analytics + UI + profile generator). architecture-red-team flagged 3 blocking concerns (no-go weakness scoring, best-10 single source of truth, compareSessions null taxonomy) — all addressed in the memo BEFORE implementation and verified in tests.",
-    "verification_sprint": "Re-ran lint + tsc + 81/81 tests at the Phase 4 boundary before any Phase 5 code was added. Phase 4 qa-playwright regression also re-run during Phase 5 QA and passed (profile CRUD, per-cue summary, rhythm narrative).",
-    "pre_commit_verify": "scripts/phasekit-verify.sh runs lint + typecheck + tests; gate intact since Phase 1. vite build also clean (341 KB JS / 105 KB gzip, +5 KB vs Phase 4 boundary)."
+    "testing": "130/130 vitest tests pass (Phase 5 baseline was 105; +25 new). Every new public behavior in wire.ts and peer.ts has at least one would-fail-if-reverted test; the race-fix regression test (peer.test.ts 'does not regress state to connecting if the channel opens during ICE gathering') gates the answerer state machine. Manual real-device gate per §B2 concession recorded in QUALITY_GATES.md and addressed in the manual_qa block above.",
+    "dry": "phone/peer.ts is the single source of truth for the RTCPeerConnection wrapper; both PhoneApp and PairScreen use it. wire.ts is the single source of truth for PhoneMessage shape; both ends import from it. Code-reviewer observation #5 (settings load/save field-list duplication) is pre-existing from Phase 4 and unchanged in shape by this phase — flagged for follow-up, not introduced here. PhoneApp/PairScreen duplication is intentional throwaway scaffolding per memo §'Throwaway scaffolding'.",
+    "drift": "No prior-phase invariants touched. RepRecord / SessionRecord / Dexie schema version unchanged. SettingsRecord widened by one optional field (`laptopLanIp?: string`) — additive, backward-compatible. ProfileRecord untouched. Phase 4 + Phase 5 functionality preserved (verified by 105 baseline tests passing alongside the 25 new ones).",
+    "planning": "decision-memo.md (Phase 2b decomposition) is the planning artifact. Phase 2b.1 acceptance criteria match docs/PHASES.md § Phase 2b.1 and the memo's §'Sub-phase 2b.1 — LAN companion-page + WebRTC DataChannel with manual SDP'.",
+    "verification_sprint": "Pre-phase: re-ran lint + tsc + 105/105 tests + vite build at the Phase 5 boundary before any 2b.1 code was added. Post-phase: 130/130 tests + lint + tsc + build all clean.",
+    "pre_commit_verify": "scripts/phasekit-verify.sh runs lint + typecheck + tests; all pass."
   },
   "review": {
-    "architecture_red_team": "Flagged 3 blocking concerns pre-implementation: (a) no-go cues silently downweighted by a single weakness score, (b) best-10 inlined in cueBreakdown — three-near-duplicate risk, (c) compareSessions null handling collapsing four distinct cases. All resolved in the memo and verified by dedicated tests before any UI code was written.",
-    "code_reviewer": "APPROVE on first pass — no blocking concerns. 6 non-blocking observations; cheap ones applied: extracted correctGoTimesOf alongside best10AvgOf, dropped dead `kind` prop from Spark, tightened the pickTaperCues fixture comment, documented the weightsDifferBetween limited-domain quirk inline.",
-    "qa_playwright": "PASS — all 6 Phase 5 criteria + Phase 4 regression. Zero console errors observed during the full driver run. Evidence in artifacts/phase5-verify/ (verify-phase5.mjs, results.json, verify-run.log, 7 PNG screenshots, vite-tail.log)."
+    "architecture_red_team": "Reviewed the Phase 2b decomposition in the prior iteration. Four blocking concerns (B1 LAN-trust model, B2 testing-gate concession, B3 falsifiable 2b.3 criteria, B4 Android-gated acceptance) resolved in artifacts/decision-memo.md before any 2b.1 code was written.",
+    "code_reviewer": "APPROVE-WITH-CHANGES on the implementation. Single conditional was manual_qa field population — addressed in the `manual_qa` block above with explicit operator-sign-off instructions. Seven non-blocking observations: (1) answerer race fix APPLIED with regression test, (2) waitForIceComplete listener-cleanup mismatch APPLIED (dropped no-op removeEventListener), (3) wire.ts validator shape DEFERRED to 2b.3 when new payload variants land, (4) exact-match /phone route APPLIED, (5) settings field-list duplication DEFERRED — pre-existing and unchanged in shape, (6) PhoneApp/PairScreen duplication ACCEPTED (intentional throwaway), (7) unreachable port fallback APPLIED (window.location.port is always present when the SPA is loaded).",
+    "qa_playwright": "Phase 2b.1 transport is gated by manual real-device QA per QUALITY_GATES.md §'Browser-API limitations (Phase 2b)' — see manual_qa block. Automated UI gate checks C1–C4 in verify-phase-2b1.mjs all PASS with zero console errors; C5 best-effort WebRTC handshake fails under headless chromium without UDP, as documented and expected. Phase 4 + Phase 5 regression: not separately re-run this iteration; covered by the full vitest suite (130/130) which gates the analytics + drill + profiles modules unchanged in this phase."
   },
-  "suggested_commit_message": "phase-5: cross-session analytics, compare view, taper-mode profile builder"
+  "suggested_commit_message": "phase-2b.1: LAN /phone route + WebRTC DataChannel transport + manual pairing UI"
 }

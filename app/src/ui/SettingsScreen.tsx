@@ -30,6 +30,7 @@ import {
 
 interface SettingsScreenProps {
   onClose: () => void
+  onOpenPair?: () => void
 }
 
 const SCORE_FIELDS: { key: RepResult; label: string }[] = [
@@ -40,7 +41,7 @@ const SCORE_FIELDS: { key: RepResult; label: string }[] = [
   { key: 'false_start', label: 'False start' },
 ]
 
-export function SettingsScreen({ onClose }: SettingsScreenProps) {
+export function SettingsScreen({ onClose, onOpenPair }: SettingsScreenProps) {
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
   const [profile, setProfile] = useState<ProfileRecord | null>(null)
   const [profiles, setProfiles] = useState<ProfileRecord[]>([])
@@ -569,6 +570,43 @@ export function SettingsScreen({ onClose }: SettingsScreenProps) {
               />
             </label>
           </>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <h2>Phone sensor (Phase 2b.1)</h2>
+        <label>
+          <span>Laptop LAN IP</span>
+          <input
+            type="text"
+            value={settings.laptopLanIp ?? ''}
+            placeholder="192.168.1.42"
+            onChange={(e) =>
+              updateSettings('laptopLanIp', e.target.value || undefined)
+            }
+            aria-label="laptop LAN IP"
+          />
+        </label>
+        <p className="hint">
+          Used to build the phone companion URL
+          (<code>http://&lt;ip&gt;:5173/phone</code>). Manual pairing only in
+          2b.1; QR-code pairing arrives in 2b.2.
+        </p>
+        {onOpenPair && (
+          <div className="profile-actions">
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                // Persist settings (especially laptopLanIp) before the
+                // PairScreen mounts and reads them from IDB.
+                void saveSettings(settings).then(onOpenPair)
+              }}
+              aria-label="open pair phone"
+            >
+              Pair phone
+            </button>
+          </div>
         )}
       </section>
 
