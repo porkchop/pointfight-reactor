@@ -55,6 +55,33 @@ describe('profiles store', () => {
     await deleteProfile(p.id)
     expect(await getProfile(p.id)).toBeNull()
   })
+
+  it('round-trips a phoneCalibration field on the profile config', async () => {
+    const p = buildDefaultProfile({
+      phoneCalibration: { thresholdG: 1.55, calibratedAt: 1_700_000_000_000 },
+    })
+    await saveProfile(p)
+    const got = await getProfile(p.id)
+    expect(got?.config.phoneCalibration?.thresholdG).toBeCloseTo(1.55, 6)
+    expect(got?.config.phoneCalibration?.calibratedAt).toBe(1_700_000_000_000)
+  })
+
+  it('overwrites the prior phoneCalibration on re-save', async () => {
+    const p = buildDefaultProfile({
+      phoneCalibration: { thresholdG: 1.4, calibratedAt: 1 },
+    })
+    await saveProfile(p)
+    await saveProfile({
+      ...p,
+      config: {
+        ...p.config,
+        phoneCalibration: { thresholdG: 2.0, calibratedAt: 2 },
+      },
+    })
+    const got = await getProfile(p.id)
+    expect(got?.config.phoneCalibration?.thresholdG).toBeCloseTo(2.0, 6)
+    expect(got?.config.phoneCalibration?.calibratedAt).toBe(2)
+  })
 })
 
 describe('settings + active profile', () => {

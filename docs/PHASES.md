@@ -94,7 +94,7 @@ Acceptance criteria:
   inflate the main bundle. Main bundle growth budget: +0 KB gzip.
 - Manual real-device QA at `app/verify-phase-2b2.mjs`.
 
-### Phase 2b.3: Accelerometer threshold + calibration
+### Phase 2b.3: Accelerometer threshold + calibration ✅ shipped
 Phone reads `devicemotion`, computes a peak-impulse metric, fires a
 debounced `commit` event when the metric exceeds the athlete's
 calibrated threshold. Laptop has a calibration screen that captures

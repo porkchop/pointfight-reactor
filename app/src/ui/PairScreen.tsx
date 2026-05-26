@@ -5,7 +5,10 @@ import { createPeer, type PeerHandle, type PeerState } from '../phone/peer'
 import { buildPhoneUrl } from '../phone/pair-url'
 import { tryDecodeOffer, tryEncodeOffer } from '../phone/qr'
 import type { PhoneMessage } from '../phone/wire'
-import { loadSettings } from '../store/settings'
+import { loadActiveProfile, loadSettings } from '../store/settings'
+import { DEFAULT_DEBOUNCE_MS, getActiveThresholdG } from '../phone/motion'
+import type { ProfileRecord } from '../store/profiles'
+import { CalibrateScreen } from './CalibrateScreen'
 
 interface PairScreenProps {
   onClose: () => void
@@ -56,15 +59,20 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
     receivedAt: number
     sentAt: number
   } | null>(null)
+  const [activeProfile, setActiveProfile] = useState<ProfileRecord | null>(null)
 
   // --- Setup: load settings, create peer, generate offer, attempt QR ---
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const s = await loadSettings()
+      const [s, profile] = await Promise.all([
+        loadSettings(),
+        loadActiveProfile(),
+      ])
       if (cancelled) return
       const ip = s.laptopLanIp?.trim() ?? ''
       setLanIp(ip || null)
+      setActiveProfile(profile)
 
       const peer = createPeer()
       peerRef.current = peer
@@ -77,6 +85,19 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
           // pure phone→laptop send time the M5 manual gate budgets at <200ms,
           // not the offer-creation + scan + handshake elapsed.
           setStartedAt(Date.now())
+          // Hand the phone the per-athlete threshold so the motion runner
+          // (Phase 2b.3) arms with the right value the moment the
+          // DataChannel opens. No threshold yet → use the default.
+          try {
+            peer.send({
+              type: 'config',
+              thresholdG: getActiveThresholdG(profile),
+              debounceMs: DEFAULT_DEBOUNCE_MS,
+              mode: 'armed',
+            })
+          } catch {
+            /* peer not actually open yet — phone defaults to armed anyway */
+          }
         }
       })
       peer.onMessage((m: PhoneMessage) => {
@@ -335,6 +356,14 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
           </p>
         )}
       </section>
+
+      {peerState === 'connected' && activeProfile && peerRef.current && (
+        <CalibrateScreen
+          peer={peerRef.current}
+          profile={activeProfile}
+          onSaved={setActiveProfile}
+        />
+      )}
 
       {err && (
         <div className="banner warn" role="alert">

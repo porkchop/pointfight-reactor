@@ -83,6 +83,13 @@ export interface SessionRecord {
   penaltyCounterEnabled?: boolean
 }
 
+export interface PhoneCalibration {
+  /** Calibrated commit threshold in g (from `phone/motion.ts`). */
+  thresholdG: number
+  /** Wall-clock timestamp of the calibration run. */
+  calibratedAt: number
+}
+
 export interface DrillConfig {
   preCueMinMs: number
   preCueMaxMs: number
@@ -102,6 +109,12 @@ export interface DrillConfig {
   textOverlayEnabled: boolean
   allowedCueIds: CueId[] | null
   scoreWeights: Record<RepResult, number>
+  /**
+   * Per-athlete motion threshold, fitted by the Phase 2b.3 calibration
+   * flow. Optional: profiles without a calibration fall back to
+   * `DEFAULT_THRESHOLD_G` from `phone/motion.ts`.
+   */
+  phoneCalibration?: PhoneCalibration
 }
 
 export const PRE_CUE_MIN_FLOOR_MS = 500

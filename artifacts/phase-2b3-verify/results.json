@@ -1,0 +1,72 @@
+{
+  "phase": "phase-2b.3",
+  "startedAt": "2026-05-26T21:07:41.582Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "initialStatus": "off",
+      "enable_button_count": 1,
+      "manual_button_count": 1
+    },
+    "C2": {
+      "pass": true,
+      "finalStatus": "on"
+    },
+    "C3": {
+      "pass": false,
+      "best_effort": true,
+      "peerState": "gathering_offer",
+      "note": "Calibration panel renders iff peer reaches connected; headless chromium without UDP typically cannot — manual M4–M6 are the authoritative gate."
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Phone at rest on a flat surface for 60s → laptop receives ZERO new commits.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Five deliberate forward-snap impulses → laptop shows EXACTLY 5 new commits.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Two impulses inside the 300ms debounce window → laptop shows EXACTLY 1 commit.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "Start calibration → throw 5 sample swings → \"Saved threshold\" appears with a finite value.",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "Reload the page → \"Current threshold\" matches M4 (persisted on ProfileRecord.config.phoneCalibration).",
+      "signed_off": null
+    },
+    {
+      "id": "M6",
+      "description": "Re-run calibration with different swings → the saved threshold differs from M4 (overwrite semantics).",
+      "signed_off": null
+    },
+    {
+      "id": "M7",
+      "description": "Android Chrome over plain HTTP: full flow works with no permission prompts.",
+      "signed_off": null
+    },
+    {
+      "id": "M8",
+      "description": "iOS Safari over HTTPS (per docs/SETUP_IOS.md): \"Enable motion sensor\" prompts, then armed mode works.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-26T21:07:52.678Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "best_effort_pass": false,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

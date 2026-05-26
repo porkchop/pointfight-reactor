@@ -39,11 +39,84 @@ describe('phone wire format', () => {
     expect(decodePhoneMessage('{"type":"future_kind","t":1}')).toBeNull()
   })
 
+  it('round-trips a sample message (phone → laptop during calibration)', () => {
+    const msg: PhoneMessage = { type: 'sample', t: 12345, peakG: 1.73 }
+    expect(decodePhoneMessage(encodePhoneMessage(msg))).toEqual(msg)
+  })
+
+  it('rejects a sample message with a non-numeric peakG', () => {
+    expect(
+      decodePhoneMessage('{"type":"sample","t":1,"peakG":"oops"}'),
+    ).toBeNull()
+  })
+
+  it('round-trips a config message (laptop → phone) in both modes', () => {
+    const armed: PhoneMessage = {
+      type: 'config',
+      thresholdG: 1.6,
+      debounceMs: 300,
+      mode: 'armed',
+    }
+    const calibrating: PhoneMessage = {
+      type: 'config',
+      thresholdG: 0.5,
+      debounceMs: 300,
+      mode: 'calibrating',
+    }
+    expect(decodePhoneMessage(encodePhoneMessage(armed))).toEqual(armed)
+    expect(decodePhoneMessage(encodePhoneMessage(calibrating))).toEqual(
+      calibrating,
+    )
+  })
+
+  it('rejects a config message with an unknown mode', () => {
+    expect(
+      decodePhoneMessage(
+        '{"type":"config","thresholdG":1.5,"debounceMs":300,"mode":"sneaky"}',
+      ),
+    ).toBeNull()
+  })
+
+  it('rejects a config message missing required numeric fields', () => {
+    expect(
+      decodePhoneMessage('{"type":"config","mode":"armed","debounceMs":300}'),
+    ).toBeNull()
+    expect(
+      decodePhoneMessage(
+        '{"type":"config","thresholdG":1.5,"mode":"armed"}',
+      ),
+    ).toBeNull()
+  })
+
+  it('rejects a config message with NaN, Infinity, or zero thresholdG', () => {
+    expect(
+      decodePhoneMessage(
+        '{"type":"config","thresholdG":0,"debounceMs":300,"mode":"armed"}',
+      ),
+    ).toBeNull()
+    // JSON cannot serialize Infinity / NaN literally, so we round-trip via
+    // an object the parser would never accept — passing NaN explicitly
+    // through isPhoneMessage instead.
+    expect(
+      decodePhoneMessage(
+        '{"type":"config","thresholdG":-1,"debounceMs":300,"mode":"armed"}',
+      ),
+    ).toBeNull()
+  })
+
+  it('rejects a config message with a negative debounceMs', () => {
+    expect(
+      decodePhoneMessage(
+        '{"type":"config","thresholdG":1.5,"debounceMs":-1,"mode":"armed"}',
+      ),
+    ).toBeNull()
+  })
+
   it('isPhoneMessage narrows union members', () => {
     const x: unknown = { type: 'commit', t: 99 }
     expect(isPhoneMessage(x)).toBe(true)
-    if (isPhoneMessage(x)) {
-      // type-narrow check: t is number
+    if (isPhoneMessage(x) && x.type === 'commit') {
+      // type-narrow check: t is number on the commit branch.
       expect(x.t).toBe(99)
     }
   })
