@@ -1,0 +1,69 @@
+{
+  "phase": "phase-2b.2",
+  "startedAt": "2026-05-26T19:09:20.084Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "observed": {
+        "offerTextarea": 1
+      }
+    },
+    "C2_error": "TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"answer-qr\"]') to be visible\u001b[22m\n",
+    "C2": {
+      "pass": false
+    },
+    "C3": {
+      "pass": true,
+      "banner": "QR payload could not be read — paste the offer manually."
+    },
+    "C4_error": "TimeoutError: page.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-testid=\"offer-qr\"]') to be visible\u001b[22m\n",
+    "C4": {
+      "pass": false,
+      "qr_canvas_non_empty": false,
+      "phone_url_starts_with": ""
+    },
+    "C5": {
+      "pass": true
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Laptop \"Pair phone\" renders an offer QR within 5s, sharp enough for phone camera decode at ~30 cm.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Phone scans the offer QR, opens the URL, auto-renders the answer QR within 3s of page load.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Laptop \"I scanned the QR — turn on camera\" → permission prompt accepted, webcam preview visible.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "Laptop webcam decodes phone answer QR within 5s; PairScreen state reaches `connected`.",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "Phone \"Send commit\" → laptop renders \"Last commit received at +Xms\" with X < 200.",
+      "signed_off": null
+    },
+    {
+      "id": "M6",
+      "description": "Camera-deny path: deny prompt; PairScreen auto-flips to manual mode with a \"Camera blocked\" banner.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-26T19:09:53.102Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "best_effort_pass": false,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

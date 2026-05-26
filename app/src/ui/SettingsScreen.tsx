@@ -574,7 +574,7 @@ export function SettingsScreen({ onClose, onOpenPair }: SettingsScreenProps) {
       </section>
 
       <section className="settings-section">
-        <h2>Phone sensor (Phase 2b.1)</h2>
+        <h2>Phone sensor</h2>
         <label>
           <span>Laptop LAN IP</span>
           <input
@@ -589,8 +589,8 @@ export function SettingsScreen({ onClose, onOpenPair }: SettingsScreenProps) {
         </label>
         <p className="hint">
           Used to build the phone companion URL
-          (<code>http://&lt;ip&gt;:5173/phone</code>). Manual pairing only in
-          2b.1; QR-code pairing arrives in 2b.2.
+          (<code>http://&lt;ip&gt;:5173/phone</code>). QR pairing in 2b.2 reads
+          this to render the offer QR.
         </p>
         {onOpenPair && (
           <div className="profile-actions">

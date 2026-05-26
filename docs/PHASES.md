@@ -73,10 +73,10 @@ Acceptance criteria:
 - Manual real-device QA documented at `app/verify-phase-2b1.mjs` +
   `artifacts/phase-2b1-verify/results.json`.
 
-### Phase 2b.2: QR-code pairing flow
+### Phase 2b.2: QR-code pairing flow ✅ shipped
 Replace manual paste with QR codes. Laptop renders an offer QR with
-`http(s)://<laptop-lan-ip>:5173/phone#<gzipped+base64 offer>`; phone
-scans, auto-applies the offer, renders an answer QR; laptop uses
+`http(s)://<laptop-lan-ip>:5173/phone#offer=<gzipped+base64 offer>`;
+phone scans, auto-applies the offer, renders an answer QR; laptop uses
 `getUserMedia` + `jsqr` to scan the phone's answer.
 
 Acceptance criteria:

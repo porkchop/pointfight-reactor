@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { useSession } from './store/session'
 import {
   DEFAULT_SETTINGS,
@@ -10,8 +10,11 @@ import { TrainerScreen } from './ui/TrainerScreen'
 import { SummaryScreen } from './ui/SummaryScreen'
 import { SettingsScreen } from './ui/SettingsScreen'
 import { AnalyticsScreen } from './ui/AnalyticsScreen'
-import { PairScreen } from './ui/PairScreen'
 import './App.css'
+
+const PairScreen = lazy(() =>
+  import('./ui/PairScreen').then((m) => ({ default: m.PairScreen })),
+)
 
 type IdleView = 'idle' | 'settings' | 'analytics' | 'pair'
 
@@ -36,7 +39,11 @@ function App() {
     return <AnalyticsScreen onClose={() => setView('idle')} />
   }
   if (view === 'pair') {
-    return <PairScreen onClose={() => setView('settings')} />
+    return (
+      <Suspense fallback={<div className="screen">Loading pair UI…</div>}>
+        <PairScreen onClose={() => setView('settings')} />
+      </Suspense>
+    )
   }
   if (phase === 'idle')
     return (

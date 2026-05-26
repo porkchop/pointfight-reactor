@@ -1,8 +1,12 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { PhoneApp } from './phone/PhoneApp.tsx'
+
+// eslint-disable-next-line react-refresh/only-export-components
+const PhoneApp = lazy(() =>
+  import('./phone/PhoneApp.tsx').then((m) => ({ default: m.PhoneApp })),
+)
 
 const isPhoneRoute =
   typeof window !== 'undefined' &&
@@ -10,6 +14,12 @@ const isPhoneRoute =
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {isPhoneRoute ? <PhoneApp /> : <App />}
+    {isPhoneRoute ? (
+      <Suspense fallback={<div className="screen">Loading phone…</div>}>
+        <PhoneApp />
+      </Suspense>
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 )
