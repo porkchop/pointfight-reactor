@@ -703,3 +703,644 @@ These are documented as a known limitation in the verify artifact.
 - iOS-on-HTTP support (requires Apple to change Safari).
 - Cloud signaling fallback (would break local-first guarantee).
 - Pose-based commit detection (Phase 7).
+
+---
+
+## Phase 6 decomposition memo — Video Opponent Mode
+
+### Decision summary
+- Clip mode is a **separate input/render path** that reuses the existing
+  `recordPress(at)` boundary and `RepRecord` schema with one additive
+  field. No engine surgery.
+- Clips are stored as **Blob in Dexie** (Option A). Largest realistic
+  Phase-6 library is ~30 clips × 50 MB ≈ 1.5 GB — well inside Chrome's
+  per-origin quota on a training laptop. Wins offline-first; matches the
+  rest of the local-first storage idiom.
+- Tagging UX is **one cue per clip, one tag, scrub-bar + frame step**.
+  Multi-tag is deferred. Single-tag is the smallest shape that satisfies
+  the acceptance criteria and keeps the engine path clean.
+- The scheduler is **bypassed for clip mode**; the clip element itself
+  is the "pre-cue delay" generator. A thin `clipRunner` slice owns the
+  per-rep state machine and calls into the same `recordPress` path the
+  keyboard/pedal/phone listeners use today.
+- Decompose into **3 sub-phases**: 6.1 import+store, 6.2 tag, 6.3 play+record.
+
+### 1. Storage strategy — Blob in Dexie (Option A)
+
+| Option | Persistent | Cross-reload | Quota ceiling | Notes |
+|---|---|---|---|---|
+| (a) Blob in Dexie | yes | yes | ~10 % of disk (Chrome) | Fits idiom; one schema bump |
+| (b) `URL.createObjectURL` ephemeral | no | no | RAM-bound | Clips re-imported every session — unusable |
+| (c) File System Access API | yes | yes | full disk | Chrome-only, re-permission per session, breaks Phase-2b Android compat story |
+
+Recommend **(a)**. Add a new Dexie table `clips: 'id, importedAt'`
+holding `{ id, name, mimeType, durationMs, sizeBytes, importedAt, blob }`.
+Bump `db.ts` to `version(4)`. Playback resolves the blob via
+`URL.createObjectURL(clip.blob)` at render time and `revokeObjectURL` on
+unmount — same pattern Chrome uses for IndexedDB-backed media.
+
+Mitigation for quota exhaustion: surface `navigator.storage.estimate()`
+in the clip-library screen, warn at >80 % usage, hard-cap at >95 % with
+"delete a clip first". No silent failures.
+
+### 2. Tagging UX — one tag per clip, scrub + step
+
+Shape:
+- Clip detail screen shows a `<video controls>` element plus a custom
+  scrub bar with two buttons: **−1 frame** and **+1 frame** (step by
+  `1/30s` since we don't know the source FPS; "good enough" for tagging
+  at human reaction-time resolution).
+- Athlete picks a `CueId` from the existing `CUE_LIBRARY` via a select
+  (reuses the Phase-3 palette directly — no new cue data).
+- Single tag persisted as `clip.cueId: CueId` + `clip.cueAtMs: number`.
+- Edit overwrites; no version history.
+
+Multi-tag is explicitly deferred. Two tags on one clip means clip mode
+also has to model "pre-cue delay between tag-1 finish and tag-2", which
+re-introduces the scheduler we just bypassed. Not worth it for Phase 6.
+
+### 3. Playback engine integration — bypass the scheduler
+
+The Phase-5 engine assumes:
+1. `pickPreCueDelayMs(rng, config)` → setTimeout → `revealCue()`
+2. `CueStage` renders the cue
+3. `recordPress(at)` classifies
+
+In clip mode steps 1 and 2 are *intrinsic to the video element*. The
+clip plays from `t=0`; when `video.currentTime * 1000 >= clip.cueAtMs`,
+that **is** "cue shown". The scheduler can't help — the timing source
+is the video, not `setTimeout`.
+
+Recommend a **parallel runner** in `app/src/clipmode/runner.ts` (new
+Zustand slice `useClipRunner`) that:
+- picks a random clip from the enabled library (`pickRandomClip(rng, clips)`),
+- mounts `<video>`, calls `play()` to capture `clipStartedAt =
+  performance.now()`,
+- on `timeupdate` (or `requestVideoFrameCallback` if available), when
+  `video.currentTime * 1000 >= clip.cueAtMs`, fires
+  `revealClipCue()` which records `cueShownAt = clipStartedAt + clip.cueAtMs`,
+- routes presses through `recordPress(at)` *unchanged*.
+
+`useSession` is **not** reused for clip mode — clip runner produces its
+own `RepRecord`s and `SessionRecord` directly via the existing `saveRep`
+/ `saveSession` helpers. This keeps the Phase-5 scheduler untouched
+(zero regression risk to shipped functionality) at the cost of some
+duplication in the rep-commit code path (acceptable: ~30 lines).
+
+### 4. RT measurement — reuses recordPress without engine change
+
+`recordPress(at)` already takes a wall-clock `performance.now()` value
+and diffs it against `cueShownAt`. As long as the clip runner produces
+`cueShownAt = clipStartedAt + clip.cueAtMs` on the same `performance.now()`
+clock, `classifyRep()` works as-is.
+
+**No engine change required.** `classifyRep()` is a pure function in
+`engine/drill.ts` and accepts arbitrary `cueShownAt` / `pressedAt`
+pairs. Reuse directly from the clip runner.
+
+One precision note: HTML5 `<video>` `timeupdate` fires at ~250 ms
+resolution. Using `requestVideoFrameCallback` (Chrome 83+, Safari 15.4+)
+brings this to per-frame (~16 ms at 60 fps), which matters because RT
+measurement at <50 ms resolution is meaningless otherwise. Acceptance
+gate: cue-shown event lands within **±33 ms** of the tagged frame.
+
+### 5. Results storage — additive `clipId` on RepRecord, additive `mode` on SessionRecord
+
+Smallest schema change:
+- `RepRecord` gains `clipId?: string`.
+- `SessionRecord` gains `mode?: 'live' | 'clip'` (default `'live'`,
+  undefined treated as `'live'` for back-compat).
+- Cue type is already on `RepRecord.cueId` — no change. The "results
+  stored by clip and cue type" criterion is met by querying
+  `reps.where('clipId').equals(id)` and grouping by `cueId`.
+
+No new `ClipSessionRecord` type. Reasoning: every Phase-5 analytics
+function (`cueBreakdown`, `antiRhythmSignal`, `best10AvgOf`) operates
+on `RepRecord[]`. A separate type would fork analytics. The two extra
+optional fields cost nothing for live sessions and unlock per-clip
+drilldown for free.
+
+Dexie change: bump to `version(4)`, add `clips: 'id, importedAt'`,
+add `clipId` to the `reps` index → `reps: 'id, sessionId, cueId, clipId'`.
+
+### 6. Sub-phase decomposition (N=3)
+
+**Phase 6.1 — Clip library: import, store, list, delete**
+- New `app/src/clipmode/library.ts` (pure: Blob → metadata extraction
+  via offscreen `<video>` for `durationMs`).
+- New `clipmode/db.ts` slice or extend `store/db.ts` with
+  `addClip(blob)`, `listClips()`, `deleteClip(id)`.
+- Dexie bump to `version(4)`; new `clips` table with the schema above.
+- New `app/src/ui/ClipLibraryScreen.tsx` accessible from `IdleScreen`
+  via a "Manage clips" link.
+- Acceptance:
+  - User picks a local .mp4 via `<input type="file" accept="video/mp4">`,
+    sees it in the list with name, duration, size.
+  - Reload preserves the list.
+  - Delete removes blob + metadata.
+  - Quota estimate visible; warning at >80 %.
+  - `clipmode/library.test.ts` covers metadata extraction with a
+    synthesized blob.
+  - `app/verify-phase6-1.mjs` documents manual import of three clips.
+
+**Phase 6.2 — Tagging UI**
+- New `app/src/ui/ClipTagScreen.tsx`: video element, scrub bar,
+  frame-step buttons, cue-type select sourced from `CUE_LIBRARY`,
+  Save button.
+- Persists `cueId` + `cueAtMs` on the existing clip record (Dexie
+  in-place update; no new version bump needed since the columns are
+  blob-internal JSON, not indexed).
+- Acceptance:
+  - From clip library, "Tag" opens the tag screen prefilled if a
+    prior tag exists.
+  - Scrub + frame-step land within 1 frame of the chosen position.
+  - Cue-type select shows all 8 entries from `CUE_LIBRARY`.
+  - Save persists; reload preserves.
+  - Untagged clips are flagged in the library list ("needs tag") and
+    excluded from playback in 6.3.
+  - `ClipTagScreen.test.tsx` covers cue-id selection + persistence.
+
+**Phase 6.3 — Random playback + RT measurement + per-clip results**
+- New `app/src/clipmode/runner.ts` (Zustand slice).
+- New `app/src/ui/ClipDrillScreen.tsx` (mounts `<video>`, drives the
+  runner, renders the same `feedback` UI as `TrainerScreen`).
+- `IdleScreen` gains a "Clip mode" start button that requires ≥1
+  tagged clip.
+- `RepRecord` gets `clipId?`, `SessionRecord` gets `mode?: 'clip' | 'live'`.
+- Random selection via existing `rng.ts`; weighted-by-untaped-recently
+  is *out of scope*.
+- `SummaryScreen` shows a per-clip breakdown when `mode === 'clip'`,
+  using `cueBreakdown(reps)` filtered by `clipId`.
+- Acceptance:
+  - Start "Clip mode" with 3 tagged clips → drill plays clips in
+    random order.
+  - Cue-shown event lands within ±33 ms of tagged frame (verified by
+    `requestVideoFrameCallback` callback timestamp vs.
+    `clipStartedAt + cueAtMs`).
+  - Pressing keyboard/pedal/phone before cue → false start.
+  - Pressing within hesitation threshold → correct_go with RT.
+  - Pressing after late threshold → late.
+  - Saved `SessionRecord.mode === 'clip'`; each `RepRecord` has the
+    correct `clipId`.
+  - Summary view groups results by clip → cue type.
+  - `clipmode/runner.test.ts` exercises the state machine with a
+    stubbed video element (manual `currentTime` advance).
+  - `app/verify-phase6-3.mjs` documents a full library → tag → drill →
+    summary flow.
+
+Each sub-phase is independently demoable: 6.1 ships a working clip
+library (browse + delete); 6.2 makes clips tag-able and visible; 6.3
+turns the system into a working video opponent.
+
+### 7. Risks / red-flags worth raising to architecture-red-team
+
+- **R1 — Blob quota assumption.** Chrome's per-origin quota is
+  documented as "up to ~60 % of free disk" on desktop, but on
+  constrained training laptops (older Chromebooks, MacBook Airs with
+  small SSDs) athletes will hit ceilings. Red-team: is the >80 %
+  warning + >95 % hard cap enough? Alternative: pre-import transcode
+  via WebCodecs to reduce file size. Probably yes, but worth a second
+  look.
+- **R2 — `requestVideoFrameCallback` browser support.** Safari 15.4
+  shipped it; Safari < 15.4 falls back to 250 ms `timeupdate`
+  resolution which makes RT measurement unreliable. Two paths:
+  (a) document Chrome/Edge/recent-Safari requirement and refuse to
+  enable Clip mode otherwise, (b) ship anyway with degraded precision.
+  No clear winner — depends on the athlete's actual training laptop.
+- **R3 — Forked rep-commit path.** Bypassing `useSession` for clip
+  mode means two pieces of code call `saveRep`/`saveSession`. Could
+  drift. Mitigation considered: extract a `commitRep()` helper to a
+  new `engine/persistence.ts` that both `session.ts` and `runner.ts`
+  call. Decided **against** for Phase 6.1–6.3 to keep the diff small;
+  red-team should sanity-check that the duplication risk is bounded
+  (~30 lines, both call sites in the same repo).
+- **R4 — Tag granularity.** Single-tag-per-clip means "opponent steps
+  in, then blitzes" must be two separate clips. Athletes may want
+  multi-tag for realism. Confirm with the spec author that single-tag
+  is acceptable for the post-tournament window, or queue a Phase 6.4
+  for multi-tag (would need a `tags[]` schema + a synthetic-delay
+  generator between tags).
+- **R5 — Frame-step precision.** Hard-coded 1/30s step assumes a 30 fps
+  source clip. A 60 fps phone-recorded clip would step by 2 frames at
+  a time; a 24 fps cinema clip steps by 0.7 frames (likely no visible
+  change). The fix is to extract FPS at import via
+  `requestVideoFrameCallback` sampling, but that costs ~50 lines and
+  may be unnecessary for the training use case. Red-team: tolerate
+  hardcoded 30 fps step, or extract real FPS?
+- **R6 — IdleScreen mode selector UX.** A second "Start" button on the
+  IdleScreen is the cheapest path; a mode toggle / segmented control
+  is cleaner. Bike-shed risk — flag for red-team to pick the shape so
+  6.3 doesn't churn the UI shell twice.
+
+### Red-team review — Phase 6 decomposition
+
+1. **Hidden coupling / drift risk (forked rep-commit path).** **MODIFY.**
+   §3 says "`useSession` is **not** reused for clip mode — clip runner
+   produces its own `RepRecord`s and `SessionRecord` directly via the
+   existing `saveRep` / `saveSession` helpers." Then §7/R3 admits "Could
+   drift. Mitigation considered: extract a `commitRep()` helper to a
+   new `engine/persistence.ts`. Decided **against** for Phase 6.1–6.3."
+   This contradicts the DRY gate (`docs/QUALITY_GATES.md` §"DRY and
+   reuse gate": "if the same logic appears in more than one layer,
+   extract it to a shared module or justify the duplication in a
+   decision memo"). The bypass duplicates the invariants encoded in
+   `commitRep()` in `src/store/session.ts` lines 107–139: rep-id
+   minting, `resolveCueAtDistance`, the `roundIndex` + `inputSource`
+   fan-out, the `persistSession(null)` call after each rep, and the
+   `feedback` state hand-off. That is at least five invariants Phase-5
+   analytics already depend on, not "~30 lines of boilerplate." Any
+   future change to `RepRecord` shape (e.g., adding a `responseId`
+   field, or wiring the distance axis into clip mode) has to be made
+   in two places or it silently rots. **Required change:** extract a
+   pure `commitRep(input) -> { rep, summary }` helper in
+   `engine/persistence.ts` (or `engine/rep.ts`) in 6.3 itself, not as a
+   future refactor. `session.ts` and `clipmode/runner.ts` both call it.
+   The "~30 LOC" argument is not a justification — it is the exact
+   shape of duplication the DRY gate names. Either justify in writing
+   why the two call sites encode *different* invariants (they don't —
+   §4 explicitly says `classifyRep()` is reused as-is, so the invariant
+   *is* the same), or extract.
+
+2. **Schema evolution safety (Dexie v4).** **MODIFY.** The memo at §1
+   says "Bump `db.ts` to `version(4)`" and at §5 says "bump to
+   `version(4)`, add `clips: 'id, importedAt'`, add `clipId` to the
+   `reps` index → `reps: 'id, sessionId, cueId, clipId'`." Two
+   problems. (a) Adding an *index* to an existing Dexie store is a
+   schema change Dexie handles by re-indexing, but the memo does not
+   specify whether the `version(4).stores(...)` block must include
+   *all four* tables (sessions, reps, settings, profiles, clips) — the
+   existing pattern at `src/store/db.ts:14-28` redeclares every table
+   in each version. Omitting any table in v4 drops it. **Required
+   change:** the 6.1 acceptance criteria must explicitly state the
+   full v4 `.stores()` declaration: `sessions: 'id, startedAt', reps:
+   'id, sessionId, cueId, clipId', settings: 'id', profiles: 'id,
+   createdAt', clips: 'id, importedAt'`. (b) The memo asserts existing
+   v3 records remain valid because `clipId` and `mode` are *optional*.
+   True for the data shape, but Dexie does not migrate or rewrite
+   existing rows; the new `clipId` index will simply be `undefined` on
+   old reps and they will not appear in `where('clipId').equals(id)`
+   queries. The memo should state this explicitly so reviewers don't
+   assume migration. **Required change:** add a "schema migration
+   notes" sub-bullet under 6.1 acceptance: "v3 reps remain readable; no
+   data migration; `where('clipId').equals(...)` on old reps returns
+   empty (intended)."
+
+3. **Acceptance-criteria falsifiability.** **MODIFY.** Several 6.1–6.3
+   criteria are not falsifiable in an automated test:
+   - 6.1 "Reload preserves the list" — testable via Dexie.
+   - 6.1 "Quota estimate visible; warning at >80 %" — testable by
+     stubbing `navigator.storage.estimate()`.
+   - 6.2 "Scrub + frame-step land within 1 frame of the chosen
+     position" — **not testable without a real `<video>` element**;
+     jsdom does not implement `HTMLMediaElement.play()` /
+     `currentTime` write semantics. This is the same class of
+     concession as Phase 2b §B2 (WebRTC + DeviceMotion). The memo
+     does not call this out.
+   - 6.3 "Cue-shown event lands within ±33 ms of tagged frame
+     (verified by `requestVideoFrameCallback` callback timestamp)"
+     — same: `requestVideoFrameCallback` is not in jsdom. Manual-QA
+     only.
+   - 6.3 "drill plays clips in random order" — see concern 7 below;
+     "random order" is not falsifiable without a distribution spec.
+
+   **Required change:** add a §B5 cross-cut (or §6.0 sub-section)
+   titled "Browser-API limitations — Phase 6" that names HTML5
+   `<video>`, `requestVideoFrameCallback`, and `navigator.storage`
+   as untestable in jsdom, lists which acceptance criteria are
+   manual-QA-gated (6.2 scrub precision; 6.3 cue-shown timing), and
+   requires `app/verify-phase-6{1,2,3}.mjs` scripts plus a `manual_qa`
+   field in each sub-phase approval — mirroring the Phase 2b
+   `docs/QUALITY_GATES.md` §"Browser-API limitations (Phase 2b)"
+   footnote. Without this, 6.2 and 6.3 will be approved with no
+   "would-fail-if-reverted" test for their core RT behavior.
+
+4. **Storage quota / failure modes.** **MODIFY.** §1 says "Mitigation
+   for quota exhaustion: surface `navigator.storage.estimate()` in the
+   clip-library screen, warn at >80 % usage, hard-cap at >95 % with
+   'delete a clip first'. No silent failures." This is good in
+   principle but the 6.1 acceptance criteria do not test the
+   *failure* path. What happens when `addClip(blob)` is called while
+   already at 96 %? When Dexie's `put()` rejects with QuotaExceededError
+   mid-write? The current code at `src/store/db.ts:61-69` swallows
+   errors into `_openError` and returns void — `addClip` will need a
+   different shape (return `{ ok: true } | { ok: false, reason }`)
+   because the user MUST see the failure. **Required change:** 6.1
+   acceptance must include (a) an `addClip` return type that surfaces
+   QuotaExceeded as a typed result, not a void/swallowed error;
+   (b) a unit test that stubs Dexie to throw `QuotaExceededError`
+   and asserts the UI shows a non-silent error; (c) an explicit
+   per-clip size cap (recommend 200 MB hard, 100 MB soft warning)
+   so a single pathological upload cannot exhaust the budget. The
+   memo's "~30 clips × 50 MB ≈ 1.5 GB" math assumes athletes will
+   trim clips; nothing enforces it.
+
+5. **RT precision under `requestVideoFrameCallback`.** **MODIFY.**
+   §4 says "HTML5 `<video>` `timeupdate` fires at ~250 ms resolution.
+   Using `requestVideoFrameCallback` (Chrome 83+, Safari 15.4+) brings
+   this to per-frame (~16 ms at 60 fps)." §7/R2 then admits Safari <
+   15.4 falls back to 250 ms. With the spec's hesitation threshold at
+   450 ms and late threshold at 600 ms (`docs/SPEC.md` "Operational
+   definitions"), a 250 ms `timeupdate` quantization means a press
+   that classifies as "correct" on Chrome could classify as
+   "hesitation" on old Safari — **the same press, the same clip**.
+   That is measurement-system incoherence, not a "degraded precision"
+   nuisance. R2 says "ship anyway with degraded precision" is on the
+   table; that is not acceptable when the spec defines hesitation in
+   tens-of-ms terms. **Required change:** pick path (a) from R2 —
+   feature-detect `requestVideoFrameCallback` and refuse to enable
+   Clip mode when absent. Add a 6.3 acceptance: "On a browser without
+   `requestVideoFrameCallback`, IdleScreen's Clip-mode start button
+   is disabled with the message 'Clip mode requires Chrome 83+,
+   Edge, or Safari 15.4+'." This is the same shape as the existing
+   "Phone not paired" gate in `src/ui/IdleScreen.tsx:60-81`.
+
+6. **Mode-selector UX coupling.** **MODIFY.** §6 6.3 says "`IdleScreen`
+   gains a 'Clip mode' start button that requires ≥1 tagged clip" and
+   §7/R6 punts the UX shape to red-team. The matrix is real:
+   inputSource ∈ {keyboard, pedal, phone} × mode ∈ {live, clip} = 6
+   combinations. Phone-input + clip-mode is *not* nonsensical — the
+   athlete stands in front of the laptop screen and the phone is
+   strapped to their hand/foot — that is exactly how Phase 2b.3's
+   calibration assumes phone is mounted. So all 6 combos are valid
+   in principle. But the current IdleScreen already gates on
+   phone-pairing (`src/ui/IdleScreen.tsx:38-40`): `phoneSelected &&
+   !phoneReady` disables Start. In clip mode that gate still applies.
+   **Required change:** 6.3 must explicitly state "Clip-mode Start
+   inherits the existing phone-pairing gate from `IdleScreen`. Clip
+   mode does **not** override inputSource; the user's configured
+   inputSource is used to record presses." Also pick the UX shape
+   *before* 6.3 ships, not as a follow-on: a segmented control above
+   the Start button (Live / Clip) is the right answer because adding
+   a second "Start" button breaks the existing single-`autoFocus`
+   button affordance at `IdleScreen.tsx:94`. Specify this in the
+   memo so 6.3 doesn't churn the shell twice.
+
+7. **Random clip selection invariants.** **MODIFY.** §6 6.3
+   acceptance says "Start 'Clip mode' with 3 tagged clips → drill
+   plays clips in random order." §6 also says "Random selection via
+   existing `rng.ts`; weighted-by-untaped-recently is *out of scope*."
+   That is not enough to write a failing test. **Required change:** pin
+   the distribution explicitly. Recommended: "uniform random with
+   replacement, no repeat-immediately-previous constraint" (mirrors
+   `pickNextCue` semantics). Then the test can be `for i in 0..200:
+   pick; assert each of N clips appears within ±20% of N/200`. Also
+   state explicitly that untagged clips are excluded (already implied
+   by 6.2's "excluded from playback in 6.3" but worth restating in 6.3
+   itself).
+
+8. **Sub-phase ordering.** **ACCEPTED.** 6.1 → 6.2 → 6.3 is correct:
+   6.2 needs persisted clips (you cannot tag what you cannot save and
+   reload), so an "in-memory clip stash that gets replaced by Dexie
+   later" would force re-importing every page reload and would
+   actively block athlete dogfooding of tagging UX. The order does
+   not lock in throwaway scaffolding — each sub-phase produces real,
+   non-disposable surface area.
+
+9. **Cross-cutting concerns from prior phases.** **BLOCK.** The
+   memo does not include a §B5 (or equivalent) cross-cut analogous
+   to Phase 2b's §B1–B4. Specifically missing: (a) browser-API
+   testing concession for `<video>` and `requestVideoFrameCallback`
+   (overlaps with concern 3 above — must be written into the memo,
+   not just acknowledged in this review); (b) browser-version gate
+   for Clip mode (overlaps with concern 5); (c) the equivalent of
+   §B3 "falsifiable acceptance" — most of 6.2 and 6.3's acceptance
+   criteria as written are *demonstrable* but not *falsifiable in
+   CI*. This is a structural omission, not a typo. **Required next
+   action:** the planner must append §B5 (browser-API limitations
+   for Phase 6) and §B6 (falsifiable acceptance for clip-mode RT
+   timing) to the "Resolved red-team blockers" section, mirroring
+   the Phase 2b pattern, and update `docs/QUALITY_GATES.md` §
+   "Browser-API limitations" to add a Phase-6 entry alongside Phase
+   2b. No sub-phase approval should proceed without this.
+
+10. **Project-complete signal.** **MODIFY.** The memo is silent on
+    whether shipping Phase 6 (or its sub-phases) triggers the
+    `done: true` final-completion artifact (`docs/QUALITY_GATES.md`
+    §"Final completion artifact"). `docs/PHASES.md:182` marks Phase 6
+    as "post-tournament unless ahead of schedule"; Phase 7 (webcam
+    pose) is also "post-tournament." The autonomous loop needs a
+    clean stop. **Required change:** add a "Project-complete
+    signal" sub-section to the memo stating: "Shipping 6.1+6.2+6.3
+    satisfies the Phase 6 acceptance criteria in `docs/PHASES.md`.
+    Phase 7 (Webcam Pose Detection) is explicitly marked
+    post-tournament and is NOT a project-complete blocker per
+    `docs/SPEC.md` §'Non-Goals for MVP' ('Perfect pose detection')
+    and §'Future Features' ('Webcam-based movement detection').
+    The wrapper should write `artifacts/phase-approval.json` for
+    6.3 with a `project_complete: true` flag (or write
+    `done: true` directly) so the loop terminates."
+
+**Verdict.** Send back to planner for a tightened revision. The plan
+is structurally sound — the storage choice is right, the sub-phase
+ordering is right, and §4's "no engine change" insight is the
+correct lever. But concern 9 (missing §B5/B6 cross-cuts) is a
+**BLOCK**, and the cluster of MODIFY findings (concerns 1, 3, 4, 5,
+6, 10) are not "nice to have" — they are the difference between a
+phase that can be tested and approved versus one that ships unreviewable
+behavior under "manual-QA-only" cover. In particular: concern 1
+(the forked rep-commit path) directly violates the DRY gate as
+written, and concern 5 (Safari `<` 15.4 measurement incoherence)
+would let the app silently report nonsense reaction times. None of
+these requires re-architecting; all are concrete edits to the memo +
+explicit gates added to the acceptance criteria. After the planner
+revises and adds §B5/§B6 and the per-concern fixes above, the plan
+is safe to advance to phase-update.
+
+### Resolved red-team blockers — Phase 6
+
+The following lock-ins replace the planner's original §1–§7 wherever they
+conflict. Each addresses a specific red-team finding by ID. The sub-phase
+acceptance criteria in `docs/PHASES.md` (written in the phase-update
+artifact) must enumerate these as testable conditions.
+
+#### §B5 — Browser-API limitations (Phase 6)
+
+Mirroring `docs/QUALITY_GATES.md` §"Browser-API limitations (Phase 2b)":
+
+- **Pure-logic modules** (`clipmode/library.ts` metadata extraction with
+  stubbed `<video>`, `clipmode/runner.ts` state machine with manual
+  `currentTime` advance, `clipmode/random.ts` distribution sampler,
+  Dexie blob round-trip via `fake-indexeddb`) remain fully unit-tested.
+  These tests gate the testing-gate's "would fail if reverted" rule.
+- **HTML5 `<video>` element semantics** (`play()`, `currentTime` write,
+  `timeupdate` cadence) and **`requestVideoFrameCallback`** are not
+  implemented in jsdom. The cue-shown precision criterion (±33 ms of
+  tagged frame) is gated by per-sub-phase manual real-device QA at
+  `app/verify-phase6-{1,2,3}.mjs`.
+- **`navigator.storage.estimate()`** can be stubbed in vitest for the
+  >80 %/>95 % branches; live-quota behavior is manual-QA only.
+- Each Phase-6 sub-phase approval artifact must include a `manual_qa`
+  block naming the device (laptop OS + browser version) and the steps
+  performed. Without it, the phase is not approved. This is a scoped
+  concession identical in shape to Phase 2b's §B2.
+- `docs/QUALITY_GATES.md` §"Browser-API limitations" will be updated in
+  6.1 to add a Phase-6 entry alongside Phase 2b.
+
+#### §B6 — Falsifiable acceptance for clip-mode RT
+
+For each sub-phase, every acceptance criterion is one of:
+
+- **AUTO** — a vitest test that would fail if the behavior were reverted
+  (storage round-trip, quota-error result type, distribution sampler
+  uniformity, classifyRep classification under stubbed `cueShownAt`).
+- **GATE** — a `verify-phase6-N.mjs` Playwright check that asserts a
+  DOM-observable condition (banner present, button disabled,
+  start-button text, summary group counts) under headless chromium with
+  the real `<video>` element. These are gate-grade because chromium
+  ships `requestVideoFrameCallback` and HTML5 video.
+- **MANUAL** — explicitly enumerated in the sub-phase's `manual_qa`
+  checklist with operator sign-off (device + date). Only RT precision
+  and end-to-end real-clip playback fall here.
+
+A criterion that is neither AUTO nor GATE nor MANUAL is not a valid
+acceptance criterion and must be removed or reshaped.
+
+#### Concern 1 — DRY: extract `commitRep()` in 6.3, not later
+
+Override §3 / §7-R3. Phase 6.3 ships with a new pure module
+`app/src/engine/persistence.ts` exposing
+`commitRep({ rep, sessionId, profile, distance }): { rep: RepRecord,
+summary: Partial<SessionRecord> }` that wraps the invariants currently
+inlined in `src/store/session.ts:107-139`: rep-id minting (`rngId`),
+`resolveCueAtDistance`, `roundIndex` + `inputSource` fan-out, the
+`persistSession(null)` boundary, and the `feedback` hand-off. Both
+`session.ts` and `clipmode/runner.ts` call it. The 6.3 acceptance must
+include: "session.ts and clipmode/runner.ts share a single
+`commitRep()` implementation; reverting either call site to its own
+rep-minting logic fails `engine/persistence.test.ts`." Refusing this is
+a DRY-gate violation per `docs/QUALITY_GATES.md` §"DRY and reuse gate".
+
+#### Concern 2 — Full Dexie v4 schema declaration + migration note
+
+Override §1 / §5. Phase 6.1 acceptance criterion locks in the exact
+declaration:
+
+```ts
+this.version(4).stores({
+  sessions: 'id, startedAt',
+  reps:     'id, sessionId, cueId, clipId',
+  settings: 'id',
+  profiles: 'id, createdAt',
+  clips:    'id, importedAt',
+});
+```
+
+Schema migration notes (must appear verbatim in 6.1 acceptance):
+- All five tables are listed; omitting any drops it.
+- Existing v3 reps remain readable. No data migration runs.
+- `reps.where('clipId').equals(<any-id>)` returns empty for pre-v4 reps
+  — intended, since they belong to live sessions.
+- A vitest test asserts that v3 rows survive the v4 upgrade by seeding
+  a v3 record into `fake-indexeddb`, reopening at v4, and asserting
+  the row reads back unchanged.
+
+#### Concern 4 — Typed `addClip()` return + per-clip size cap
+
+Override §1's "no silent failures" hand-wave. Phase 6.1 acceptance:
+
+- `addClip(blob)` returns
+  `{ ok: true; clip: ClipRecord } | { ok: false; reason: 'quota' | 'too-large' | 'unsupported-type' | 'storage-error'; message: string }`.
+- Per-clip hard cap: **200 MB**. Soft warning at **100 MB** (toast
+  warns about quota burn).
+- A unit test stubs Dexie's `put()` to throw a `QuotaExceededError`
+  (DOMException with name `'QuotaExceededError'`) and asserts the call
+  returns `{ ok: false, reason: 'quota' }` and that the UI renders a
+  non-silent error banner with the returned `message`.
+- A unit test calls `addClip()` with a 250 MB blob and asserts
+  `{ ok: false, reason: 'too-large' }`.
+
+#### Concern 5 — Feature-gate Clip mode on `requestVideoFrameCallback`
+
+Override §4 / §7-R2's "no clear winner". Pick path (a): refuse to
+enable Clip mode when `requestVideoFrameCallback` is absent. Phase 6.3
+acceptance:
+
+- A new export `clipmode/runtime.ts:isClipModeSupported()` returns
+  `typeof HTMLVideoElement !== 'undefined' && 'requestVideoFrameCallback'
+  in HTMLVideoElement.prototype`.
+- IdleScreen's "Clip mode" start button is disabled when
+  `!isClipModeSupported()`, with a `data-testid="clip-mode-unsupported"`
+  banner reading "Clip mode requires Chrome 83+, Edge, or Safari 15.4+
+  for accurate frame timing." Same shape as the existing "Phone not
+  paired" gate at `src/ui/IdleScreen.tsx:60-81`.
+- Unit test stubs `HTMLVideoElement.prototype` to omit the method and
+  asserts the banner renders + button disabled. Verify-phase6-3.mjs
+  GATE check asserts the banner does NOT render under headless chromium
+  (which supports the API).
+
+This eliminates the cross-browser RT-incoherence risk by making clip
+mode opt-in only on browsers where the RT measurement is meaningful.
+
+#### Concern 6 — Mode selector UX shape: segmented control above Start
+
+Override §6 6.3 / §7-R6. The IdleScreen mode selector is a **segmented
+control** rendered above the Start button, with two options "Live" and
+"Clip". Default is "Live" (no behavior change for existing users). The
+existing single `autoFocus` Start button at `IdleScreen.tsx:94` is
+preserved — Start dispatches based on the selected mode, not by being
+a second button. Phase 6.3 acceptance:
+
+- IdleScreen exposes `data-testid="mode-segmented"` with two children
+  `data-testid="mode-live"` and `data-testid="mode-clip"`.
+- Clip-mode Start inherits the existing phone-pairing gate verbatim:
+  `phoneSelected && !phoneReady` still disables Start regardless of
+  mode. (No code change to the gate logic — it sits above the
+  mode-routing branch.)
+- Clip mode does **not** override `inputSource`; the user's configured
+  keyboard / pedal / phone input is used to record presses. The
+  inputSource × mode matrix (6 combinations) is fully supported.
+- Selecting Clip mode with zero tagged clips disables Start with a
+  `data-testid="clip-mode-no-clips"` banner pointing to the clip
+  library.
+
+#### Concern 7 — Pin random clip distribution
+
+Override §6 6.3 "drill plays clips in random order". Phase 6.3
+acceptance pins the distribution:
+
+- Selection is **uniform random with replacement, no
+  repeat-immediately-previous constraint** (mirrors `pickNextCue`).
+  Untagged clips are excluded from the candidate pool.
+- A vitest test seeds a `mulberry32(...)` RNG, draws 200 picks from a
+  5-clip pool, asserts each clip is drawn within ±20 % of 200/5 = 40
+  picks. (`expect(count).toBeGreaterThanOrEqual(32)`,
+  `toBeLessThanOrEqual(48)` per clip.)
+- A second test asserts no `pick === prevPick` over 100 draws given
+  ≥2 clips in the pool.
+
+#### Concern 10 — Project-complete signal at 6.3
+
+Shipping 6.1 + 6.2 + 6.3 satisfies all of Phase 6's acceptance criteria
+in `docs/PHASES.md:182-194`. Phase 7 (Webcam Pose Detection) is
+explicitly post-tournament per `docs/PHASES.md:196` and is listed under
+`docs/SPEC.md` §"Non-Goals for MVP" / §"Future Features". The
+autonomous loop's terminal signal:
+
+- The 6.3 `phase-approval.json` artifact must set
+  `"project_complete": true` at the top level.
+- After the wrapper commits 6.3 approval, the next iteration writes
+  `artifacts/project-complete.json` with
+  `{ "complete": true, "final_phase": "6.3", "deferred": ["phase-7"],
+    "deferred_reason": "post-tournament; not required for MVP per
+    docs/SPEC.md" }`.
+
+#### Documentation updates (lock-ins for 6.1)
+
+`docs/QUALITY_GATES.md` §"Browser-API limitations (Phase 2b)" is renamed
+to §"Browser-API limitations (Phase 2b + Phase 6)" with the Phase-6
+content from §B5 above appended (HTML5 `<video>`,
+`requestVideoFrameCallback`, `navigator.storage.estimate`).
+`docs/PHASES.md` Phase-6 section is replaced (in the phase-update
+artifact) with the 6.1/6.2/6.3 breakdown including the locked-in
+acceptance criteria above.
+
+#### Verdict resolution
+
+All 8 MODIFY items above are now lock-ins, not options. The single
+BLOCK (concern 9 — missing §B5/B6) is resolved by the §B5 and §B6
+sections above. Concern 8 (sub-phase ordering) was ACCEPTED in the
+review. The plan is now safe to advance to a `phase-update.json`
+artifact that updates `docs/PHASES.md` with the 6.1/6.2/6.3
+decomposition. No second red-team pass required — the resolutions are
+mechanical, not architectural.
+

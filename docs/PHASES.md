@@ -179,19 +179,135 @@ Acceptance criteria:
   are slowest or least accurate on.
 - Session-over-session comparison view.
 
-## Phase 6: Video Opponent Mode  [post-tournament unless ahead of schedule]
-Add local video clip import and manual cue-time tagging.
+## Phase 6: Video Opponent Mode  [next, decomposed into 6.1–6.3]
+Add local video clip import, manual cue-time tagging, and a video-driven
+drill mode that reuses the existing rep-scoring engine.
 
-Acceptance criteria:
+Phase 6 is decomposed into three sub-phases. The original Phase 6 acceptance
+criteria are split across them. See `artifacts/decision-memo.md` (the
+"Phase 6 decomposition memo — Video Opponent Mode" + "Resolved red-team
+blockers — Phase 6" sections) for the planning record, the storage-strategy
+trade-off, and the cross-cutting concessions (§B5 browser-API limitations,
+§B6 falsifiable acceptance for clip-mode RT).
+
+Original Phase 6 acceptance criteria (preserved for traceability):
 - User can import local clips.
 - User can tag cue type and cue timestamp.
 - App can randomly play clips.
 - Reaction timer starts from cue timestamp.
 - Results are stored by clip and cue type.
 
-Rationale for deprioritization: building a usable clip library in two weeks
-is unrealistic, and animated silhouettes (Phase 3) capture most of the
-visuospatial transfer benefit at a fraction of the build cost.
+Rationale for original deprioritization (now resolved): building a usable
+clip library in two weeks was unrealistic for the pre-tournament window.
+Phases 1-5 + 2b.1-2b.4 have shipped; Phase 6 now follows in three small
+ships post-tournament.
+
+### Phase 6.1: Clip library — import, store, list, delete
+Persist local .mp4 clips as Blobs in Dexie at `version(4)`, alongside an
+import / list / delete UI accessible from IdleScreen. The existing
+sessions/reps/settings/profiles tables are preserved unchanged.
+
+Acceptance criteria:
+- New Dexie schema `version(4)` declares all five tables exactly:
+  `sessions: 'id, startedAt'`, `reps: 'id, sessionId, cueId, clipId'`,
+  `settings: 'id'`, `profiles: 'id, createdAt'`, `clips: 'id, importedAt'`.
+- v3 reps remain readable after the v4 upgrade with no data migration;
+  `where('clipId').equals(<any>)` on a pre-v4 rep returns empty.
+  Covered by `db.test.ts` v3→v4 upgrade test against `fake-indexeddb`.
+- `addClip(blob)` returns
+  `{ ok: true; clip } | { ok: false; reason: 'quota' | 'too-large' | 'unsupported-type' | 'storage-error'; message }`.
+  Per-clip hard cap: 200 MB. Soft warning toast at >100 MB.
+- A unit test stubs Dexie `put()` to throw `QuotaExceededError` and
+  asserts `addClip` returns `{ ok: false, reason: 'quota' }`. A second
+  test confirms a 250 MB blob returns `{ ok: false, reason: 'too-large' }`.
+- `ClipLibraryScreen.tsx` accessible from IdleScreen via a "Manage clips"
+  link. Lists clips with name, duration, size; supports `<input
+  type="file" accept="video/mp4">` import and delete (with confirm).
+- `navigator.storage.estimate()` surface visible in the library screen;
+  warning banner at >80 % usage, hard-cap banner at >95 %. Both branches
+  unit-tested with a stubbed `estimate()`.
+- `docs/QUALITY_GATES.md` §"Browser-API limitations" is updated to add a
+  Phase-6 entry alongside Phase 2b (HTML5 `<video>`,
+  `requestVideoFrameCallback`, `navigator.storage.estimate`).
+- Lint + tsc + vitest + vite build clean. Bundle growth budget:
+  +5 KB gzip for the new library screen + Dexie schema.
+- Manual real-device QA documented at `app/verify-phase6-1.mjs` +
+  `artifacts/phase-6-1-verify/results.json` (import 3 .mp4 clips of
+  varying size, reload, delete, verify quota math).
+
+### Phase 6.2: Clip tagging UI
+Add a `ClipTagScreen` that records a single `(cueId, cueAtMs)` per clip
+using the existing `CUE_LIBRARY` from Phase 3.
+
+Acceptance criteria:
+- From ClipLibraryScreen, "Tag" opens `ClipTagScreen.tsx`, prefilled if a
+  prior tag exists.
+- Tag screen shows `<video controls>` plus a custom scrub bar with
+  **−1 frame** and **+1 frame** buttons (step `1/30s`).
+- Cue-type select sources from `CUE_LIBRARY` (all 8 entries) and writes
+  `clip.cueId` + `clip.cueAtMs` back to Dexie via an in-place update.
+- Untagged clips are flagged in the library list ("needs tag") and
+  excluded from playback in 6.3.
+- Save persists; reload preserves tag.
+- `ClipTagScreen.test.tsx` covers cue-id selection and persistence with
+  a stubbed `<video>` element.
+- Lint + tsc + vitest + vite build clean.
+- Manual real-device QA documented at `app/verify-phase6-2.mjs`. Scrub
+  precision (within ~1 frame) is a MANUAL gate per §B5 of the
+  decision memo.
+
+### Phase 6.3: Clip-mode drill + RT measurement + per-clip results
+A `clipmode/runner.ts` Zustand slice drives the `<video>` element, fires
+`recordPress`-equivalent commits, and persists results through a new
+shared `engine/persistence.ts:commitRep()` helper that **both** the
+existing `session.ts` live path and the new clip-mode path call.
+
+Acceptance criteria:
+- New pure module `engine/persistence.ts` exposes
+  `commitRep({ rep, sessionId, profile, distance })` containing the
+  invariants currently inlined in `src/store/session.ts:107-139`
+  (rep-id minting, `resolveCueAtDistance`, `roundIndex` + `inputSource`
+  fan-out, `persistSession(null)` boundary, `feedback` hand-off).
+  Both `session.ts` and `clipmode/runner.ts` call it. A test reverts
+  either call site to inline rep-minting and asserts
+  `engine/persistence.test.ts` fails.
+- `RepRecord` gains `clipId?: string`. `SessionRecord` gains
+  `mode?: 'live' | 'clip'` (undefined ≡ `'live'` for back-compat).
+- `clipmode/runner.ts` selects clips by **uniform random with
+  replacement, no repeat-immediately-previous**. Untagged clips are
+  excluded. Distribution test: 200 draws from 5 clips, each appears
+  32–48 times. No-repeat-prev test: 100 draws from ≥2 clips, no
+  consecutive duplicates.
+- IdleScreen adds a segmented control above Start with `data-testid=
+  "mode-segmented"` exposing `mode-live` + `mode-clip` options. Default
+  `live`. Start dispatches based on selected mode; no second Start
+  button. Clip-mode Start inherits the existing phone-pairing gate
+  (`phoneSelected && !phoneReady` disables regardless of mode).
+- `clipmode/runtime.ts:isClipModeSupported()` returns false when
+  `requestVideoFrameCallback` is absent. IdleScreen renders a
+  `data-testid="clip-mode-unsupported"` banner ("Clip mode requires
+  Chrome 83+, Edge, or Safari 15.4+") and disables Start in that case.
+  Unit test stubs `HTMLVideoElement.prototype` without the method.
+- Selecting Clip mode with zero tagged clips disables Start with a
+  `data-testid="clip-mode-no-clips"` banner pointing to the library.
+- `ClipDrillScreen.tsx` mounts `<video>`, drives the runner, renders
+  the same feedback UI as TrainerScreen. `cueShownAt = clipStartedAt +
+  clip.cueAtMs` computed via `requestVideoFrameCallback` callback
+  timestamp.
+- Saved `SessionRecord.mode === 'clip'`; each `RepRecord` has the
+  correct `clipId`. Phase-5 analytics (`cueBreakdown`,
+  `antiRhythmSignal`, `best10AvgOf`) continue to work unchanged on
+  the additive fields.
+- SummaryScreen shows a per-clip breakdown when `mode === 'clip'`,
+  using `cueBreakdown(reps)` filtered by `clipId`.
+- Lint + tsc + vitest + vite build clean. Bundle growth budget:
+  +6 KB gzip for runner + drill screen + persistence helper.
+- Manual real-device QA at `app/verify-phase6-3.mjs`. The ±33 ms cue-
+  shown precision criterion is MANUAL per §B5 (requires real
+  `<video>` + `requestVideoFrameCallback` against a clip on disk).
+- The 6.3 `phase-approval.json` sets `"project_complete": true` at the
+  top level; the next iteration writes `artifacts/project-complete.json`
+  with `final_phase: "6.3"` and `deferred: ["phase-7"]`.
 
 ## Phase 7: Webcam Pose Detection Prototype  [post-tournament]
 Add optional webcam-based response detection.

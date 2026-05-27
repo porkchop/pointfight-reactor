@@ -42,15 +42,24 @@ When coverage tooling is available in the target project, aim for meaningful bra
 
 "Relevant tests pass" (from the universal gate) means: tests exist that would fail if the feature were removed or the bug fix reverted.
 
-### Browser-API limitations (Phase 2b)
+### Browser-API limitations (Phase 2b + Phase 6)
 
-Some browser APIs (notably `RTCPeerConnection` / WebRTC DataChannel, `navigator.mediaDevices.getUserMedia`, and `DeviceMotionEvent`) cannot be exercised reliably under jsdom or headless Playwright in this project's test environment. Phase 2b's transport handshake and motion-sensor logic are split accordingly:
+Some browser APIs cannot be exercised reliably under jsdom or headless Playwright in this project's test environment. Each affected phase declares a scoped concession.
+
+**Phase 2b** — `RTCPeerConnection` / WebRTC DataChannel, `navigator.mediaDevices.getUserMedia`, and `DeviceMotionEvent`:
 
 - **Pure-logic modules** (peer state machine, wire format, motion impulse detection, calibration math) remain fully unit-tested under vitest with stubbed browser APIs. These tests gate the testing-gate's "would fail if reverted" rule.
 - **Transport handshake and live sensor input** are gated by a per-sub-phase manual real-device QA script (`app/verify-phase-2b{1,2,3,4}.mjs`) — same pattern as the existing `verify-phase{4,5}.mjs` flows.
 - Each Phase 2b sub-phase approval artifact must include a `manual_qa` field naming the device used and the steps performed; without it, the phase is not approved.
 
-This is a scoped concession, not a general gate relaxation. See `artifacts/decision-memo.md` §B2 for the full reasoning.
+**Phase 6** — HTML5 `<video>` element semantics (`play()`, `currentTime` write, `timeupdate`), `requestVideoFrameCallback`, and live `navigator.storage.estimate()` behavior:
+
+- **Pure-logic modules** (`clipmode/library.ts` metadata extraction with stubbed `<video>`, `clipmode/runner.ts` state machine with manual `currentTime` advance, `clipmode/random.ts` distribution sampler, Dexie blob round-trip via `fake-indexeddb`, the typed `addClip()` quota / size / type result branches) remain fully unit-tested. These tests gate the testing-gate's "would fail if reverted" rule.
+- **HTML5 `<video>` semantics and `requestVideoFrameCallback`** are gated by a per-sub-phase manual real-device QA script (`app/verify-phase6-{1,2,3}.mjs`). Specifically: the ±33 ms cue-shown precision criterion (6.3), the scrub-to-1-frame precision criterion (6.2), and the end-to-end clip-import → tag → drill → summary flow are MANUAL.
+- **Browser-version gate** — Clip mode is feature-detected via `requestVideoFrameCallback`. Browsers without it (Safari < 15.4) cannot enable Clip mode; this is intentional to avoid measurement-system incoherence given the spec's 450 ms hesitation / 600 ms late thresholds.
+- Each Phase 6 sub-phase approval artifact must include a `manual_qa` field naming the laptop OS + browser version and the steps performed; without it, the phase is not approved.
+
+This is a scoped concession, not a general gate relaxation. See `artifacts/decision-memo.md` §B2 (Phase 2b) and §B5–§B6 (Phase 6) for the full reasoning.
 
 ## DRY and reuse gate
 - business rules and validation logic must exist in exactly one place

@@ -1,0 +1,36 @@
+{
+  "phase": "phase-6",
+  "action": "decompose",
+  "approved": false,
+  "summary": "Phase 6 (Video Opponent Mode) is decomposed into three sub-phases — 6.1 clip library (import / Dexie v4 / quota-aware add) → 6.2 clip tagging UI (single (cueId, cueAtMs) per clip, reuses Phase-3 CUE_LIBRARY) → 6.3 clip-mode drill (Zustand runner, shared engine/persistence.ts commitRep helper, RepRecord.clipId + SessionRecord.mode additive fields, segmented Live/Clip control on IdleScreen, requestVideoFrameCallback feature gate). Decision recorded in artifacts/decision-memo.md `## Phase 6 decomposition memo` + `### Red-team review` + `### Resolved red-team blockers`. docs/PHASES.md Phase-6 section replaced with the 6.1/6.2/6.3 breakdown including locked-in falsifiable acceptance criteria. docs/QUALITY_GATES.md `Browser-API limitations` section extended with a Phase-6 entry (HTML5 <video>, requestVideoFrameCallback, navigator.storage.estimate). No code changed. The next iteration picks up Phase 6.1 implementation.",
+  "decision_memo": "artifacts/decision-memo.md",
+  "planning": {
+    "strategy_planner": "Produced the §1-§7 decomposition memo: storage strategy (Blob in Dexie / Option A over URL.createObjectURL and File System Access API), tagging UX (single tag per clip, scrub+1/30s frame step), playback integration (bypass Phase-5 scheduler — the <video> element IS the pre-cue delay generator; route presses through unchanged classifyRep), RT measurement (reuses recordPress without engine change via cueShownAt = clipStartedAt + clip.cueAtMs on performance.now() clock), results storage (additive RepRecord.clipId? + SessionRecord.mode? — no new SessionRecord variant; Phase-5 analytics continue to work), sub-phase decomposition (N=3 with concrete files-to-touch + acceptance criteria each), and six risks (R1-R6) flagged for red-team scrutiny.",
+    "architecture_red_team": "Returned 1 ACCEPTED + 8 MODIFY + 1 BLOCK. Verdict: send back to planner for tightened revision; the plan is structurally sound but several acceptance criteria as written are not falsifiable and the parallel `clipmode/runner.ts` slice duplicates `commitRep` invariants from `src/store/session.ts:107-139` in a way that directly violates the DRY gate. The BLOCK (concern 9) called out the missing §B5/§B6 cross-cuts analogous to Phase 2b's §B1-B4. Concrete required edits enumerated per concern (1-7 + 9 + 10) with quoted source lines and exact required wording.",
+    "red_team_resolution": "All 8 MODIFY + 1 BLOCK addressed in the `### Resolved red-team blockers — Phase 6` section appended to artifacts/decision-memo.md and reflected in docs/PHASES.md and docs/QUALITY_GATES.md. Key lock-ins: (1) commitRep() extraction in 6.3 itself (not deferred) — engine/persistence.ts becomes the single source of rep-commit invariants for both session.ts and clipmode/runner.ts; (2) exact v4 Dexie .stores() declaration enumerated + v3→v4 upgrade test required; (4) addClip() returns a typed `{ ok, reason }` result + 200MB hard cap + QuotaExceededError stub test + 250MB-blob test; (5) requestVideoFrameCallback feature gate disables Clip mode + banner on unsupported browsers — eliminates the Safari<15.4 measurement-incoherence risk; (6) segmented Live/Clip control above the existing Start button (single Start, no second button) — preserves IdleScreen affordance + inherits phone-pairing gate; (7) uniform random with replacement + no-repeat-prev distribution + a 200-draw bound test (±20% per clip); (10) 6.3 sets `project_complete: true` and the next iteration writes artifacts/project-complete.json with `final_phase: '6.3', deferred: ['phase-7']`."
+  },
+  "files_changed": [
+    "docs/PHASES.md — Phase 6 section replaced with 6.1/6.2/6.3 breakdown (original acceptance criteria preserved for traceability + new per-sub-phase acceptance criteria locked in)",
+    "docs/QUALITY_GATES.md — `Browser-API limitations` section renamed `(Phase 2b + Phase 6)`; Phase-6 entry appended with the <video> / requestVideoFrameCallback / navigator.storage concession",
+    "artifacts/decision-memo.md — appended ~22 KB across `## Phase 6 decomposition memo — Video Opponent Mode` (planner), `### Red-team review — Phase 6 decomposition` (red-team), `### Resolved red-team blockers — Phase 6` (resolution + §B5/§B6 cross-cuts)"
+  ],
+  "files_unchanged": [
+    "app/src/** — no code change; this is a planning iteration",
+    "app/package.json — no new deps until 6.1 implementation iteration",
+    "All existing tests pass unchanged (190/190); lint + tsc + vite build all clean"
+  ],
+  "next_phase": {
+    "id": "phase-6.1",
+    "title": "Clip library — import, store, list, delete",
+    "scope_summary": "Dexie schema v4 (sessions/reps/settings/profiles/clips with clipId on the reps index) + addClip()/listClips()/deleteClip() with typed result branches + ClipLibraryScreen.tsx accessible from IdleScreen + navigator.storage.estimate() quota surface. No engine changes, no SessionRecord changes — those land in 6.3.",
+    "acceptance_criteria_location": "docs/PHASES.md §'Phase 6.1: Clip library — import, store, list, delete'",
+    "expected_test_count_delta": "+8 to +12 vitest tests (addClip quota / too-large / unsupported-type / storage-error branches; listClips ordering; deleteClip; v3→v4 schema upgrade survival; navigator.storage.estimate stubbed at 70% / 85% / 96%)",
+    "expected_bundle_growth": "+5 KB gzip for ClipLibraryScreen + Dexie schema (no new heavy deps; reuses existing dexie + react)"
+  },
+  "gates": {
+    "planning": "Strategy-planner produced the decomposition memo. Architecture-red-team returned MODIFY + BLOCK findings. Resolution section appended to the memo with concrete lock-ins; no second red-team pass required — the resolutions are mechanical (concrete edits to acceptance criteria + §B5/§B6 cross-cuts), not architectural.",
+    "drift": "No prior-phase invariants touched in this iteration. Phase 2b's WebRTC + motion concession (§B1-§B4) is unchanged; Phase 6's §B5-§B6 is additive and follows the same shape. The planned commitRep() extraction in 6.3 will REDUCE drift between live and clip rep paths — not introduce any.",
+    "verification_sprint": "Pre-planning: 190/190 vitest tests + lint + tsc + vite build all clean at the Phase 2b.4 close. Re-ran after the doc edits (lint + tests) to confirm doc changes didn't break anything — both clean."
+  },
+  "operator_notes": "This iteration produced only documentation + planning artifacts. The wrapper should commit them so the next iteration starts cleanly at Phase 6.1 with the lock-ins in docs/PHASES.md as the source of truth. No code review is required for a doc-only update; the planning gate is satisfied by the strategy-planner + architecture-red-team round-trip recorded above and in the decision memo. The autonomous loop's expected next action: read docs/PHASES.md §'Phase 6.1', implement against the acceptance criteria listed there, and write artifacts/phase-approval.json with phase='phase-6.1' when complete."
+}
