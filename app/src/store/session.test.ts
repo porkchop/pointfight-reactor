@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mulberry32 } from '../engine/rng'
+import * as persistence from '../engine/persistence'
 import { useSession } from './session'
 import { getDb } from './db'
 
@@ -18,6 +19,29 @@ describe('useSession store', () => {
   beforeEach(async () => {
     reset()
     await clearDb()
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('routes recordPress through engine/persistence.commitRep (code-reviewer B4 wire test)', () => {
+    const spy = vi.spyOn(persistence, 'commitRep')
+    useSession.getState().start({ goCueProbability: 1 }, mulberry32(1))
+    useSession.getState().revealCue()
+    const cueShownAt = useSession.getState().current?.cueShownAt as number
+    useSession.getState().recordPress(cueShownAt + 200)
+    expect(spy).toHaveBeenCalledTimes(1)
+    const callArg = spy.mock.calls[0][0]
+    expect(callArg.clipId).toBeUndefined()
+    expect(callArg.sessionId).not.toBeNull()
+  })
+
+  it('routes session persistence through engine/persistence.persistSessionRecord (code-reviewer B3 wire test)', () => {
+    const spy = vi.spyOn(persistence, 'persistSessionRecord')
+    useSession.getState().start({}, mulberry32(1))
+    expect(spy).toHaveBeenCalled()
+    const firstArg = spy.mock.calls[0][0]
+    expect(firstArg.mode).toBeUndefined() // live mode → mode field omitted
   })
 
   it('transitions idle → waiting on start with a pre-selected cue', () => {

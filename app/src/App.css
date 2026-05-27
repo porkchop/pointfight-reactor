@@ -856,3 +856,59 @@ tr.compare-baseline_only td {
   font-weight: 600;
 }
 
+
+/* ---- Phase 6.3 clip-mode UI ---- */
+.mode-segmented {
+  display: inline-flex;
+  gap: 0;
+  padding: 0;
+  margin: 0.8rem 0;
+  border: 1px solid var(--gym-line, #2a2a2a);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mode-segmented label {
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.mode-segmented label:has(input:checked) {
+  background: var(--gym-neutral, #1e1e1e);
+  font-weight: 600;
+}
+.mode-segmented input[type='radio'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  border: 0;
+}
+.clip-drill-stage {
+  position: relative;
+}
+.clip-drill-video {
+  width: 100%;
+  max-height: 70vh;
+  background: #000;
+  border-radius: 8px;
+}
+.cue-table.per-clip {
+  margin-top: 0.8rem;
+}
+.cue-table.per-clip caption {
+  text-align: left;
+  font-family: ui-monospace, monospace;
+  color: var(--gym-muted);
+  padding-bottom: 0.3rem;
+}

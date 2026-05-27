@@ -9,6 +9,11 @@ import {
   summarize,
   type ClassifyOutput,
 } from '../engine/drill'
+import {
+  commitRep as commitRepHelper,
+  mintSessionId,
+  persistSessionRecord,
+} from '../engine/persistence'
 import { defaultRng, type RNG } from '../engine/rng'
 import {
   DEFAULT_DRILL_CONFIG,
@@ -17,9 +22,7 @@ import {
   type DrillConfig,
   type InputSource,
   type RepRecord,
-  type SessionRecord,
 } from '../engine/types'
-import { saveRep, saveSession } from './db'
 
 export type DrillPhase =
   | 'idle'
@@ -74,36 +77,31 @@ interface SessionState {
   reset: () => void
 }
 
-function newId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 export const useSession = create<SessionState>((set, get) => {
   function persistSession(endedAt: number | null): void {
     const state = get()
     if (!state.sessionId || state.sessionStartedAt === null) return
-    const record: SessionRecord = {
-      id: state.sessionId,
-      startedAt: state.sessionStartedAt,
-      endedAt,
-      drillType: 'first_beat_go_no_go',
-      repCount: state.reps.length,
-      summary: summarize(state.reps),
-      inputSource: state.inputSource,
-      rounds: state.config.rounds,
-      workMs: state.config.workMs,
-      restMs: state.config.restMs,
-      cleared: state.cleared,
-      penaltyCounterEnabled: state.config.penaltyCounterEnabled,
-    }
-    void saveSession(record).catch((err) => {
-      set({ persistError: (err as Error).message })
-    })
+    persistSessionRecord(
+      {
+        sessionId: state.sessionId,
+        startedAt: state.sessionStartedAt,
+        endedAt,
+        reps: state.reps,
+        inputSource: state.inputSource,
+        config: state.config,
+        cleared: state.cleared,
+        penaltyCounterEnabled: state.config.penaltyCounterEnabled,
+      },
+      (err) => set({ persistError: err.message }),
+    )
   }
 
+  // Phase 6.3 — rep-minting + persistence is now centralized in
+  // `engine/persistence.ts:commitRep`. This wrapper applies the
+  // session-store side effects (phase transition, feedback hand-off,
+  // session-progress save) on top of the shared rep-build path so
+  // `clipmode/runner.ts` can call the same helper without duplicating
+  // the invariants encoded here.
   function commitRep(
     cue: CueDef,
     distance: Distance | null,
@@ -113,27 +111,20 @@ export const useSession = create<SessionState>((set, get) => {
   ): void {
     const state = get()
     if (!state.sessionId || state.sessionStartedAt === null) return
-    const effective = resolveCueAtDistance(cue, distance)
-    const rep: RepRecord = {
-      id: newId(),
-      sessionId: state.sessionId,
-      cueId: cue.id,
-      isGo: effective.isGo,
-      result: classification.result,
-      reactionMs: classification.reactionMs,
-      score: classification.score,
+    const { rep, feedback } = commitRepHelper({
+      cue,
+      distance,
       cueShownAt,
       pressedAt,
+      classification,
+      sessionId: state.sessionId,
       roundIndex: state.roundIndex,
       inputSource: state.inputSource,
-      ...(distance !== null ? { distance } : {}),
-    }
-    void saveRep(rep)
-    const nextReps = [...state.reps, rep]
+    })
     set({
       phase: 'feedback',
-      feedback: { rep, cue },
-      reps: nextReps,
+      feedback,
+      reps: [...state.reps, rep],
     })
     persistSession(null)
   }
@@ -156,7 +147,7 @@ export const useSession = create<SessionState>((set, get) => {
 
     start: (overrides, rng, inputSource) => {
       const config = { ...DEFAULT_DRILL_CONFIG, ...overrides }
-      const sessionId = newId()
+      const sessionId = mintSessionId()
       const startedAt = Date.now()
       set({
         phase: 'waiting',

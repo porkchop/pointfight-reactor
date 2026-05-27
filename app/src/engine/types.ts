@@ -56,6 +56,13 @@ export interface RepRecord {
   roundIndex: number
   inputSource: InputSource
   distance?: Distance
+  /**
+   * Phase 6.3 — when set, this rep was recorded against a video clip in
+   * clip-mode. Indexed in Dexie v4 (declared at `store/db.ts:36`).
+   * Undefined for live-mode reps; back-compat is preserved by this field
+   * being optional.
+   */
+  clipId?: string
 }
 
 export interface SessionSummary {
@@ -81,6 +88,14 @@ export interface SessionRecord {
   restMs?: number
   cleared?: number
   penaltyCounterEnabled?: boolean
+  /**
+   * Phase 6.3 — clip-mode marker. `undefined` is treated as `'live'` for
+   * back-compat with all v1–v4 sessions persisted before 6.3 shipped.
+   * Clip-mode sessions are produced by `clipmode/runner.ts`; live
+   * sessions by `store/session.ts`. Analytics that group by mode must
+   * default `undefined` to `'live'`.
+   */
+  mode?: 'live' | 'clip'
 }
 
 export interface PhoneCalibration {

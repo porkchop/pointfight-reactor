@@ -1,0 +1,68 @@
+{
+  "phase": "phase-6.3",
+  "startedAt": "2026-05-27T20:33:38.950Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "segmented": 1,
+      "live_option": 1,
+      "clip_option": 1,
+      "live_default_checked": true
+    },
+    "C2": {
+      "pass": true,
+      "banner_count": 1,
+      "start_disabled": true
+    },
+    "C3": {
+      "pass": true,
+      "unsupported_banner": 0,
+      "rvfc_present_on_chromium": true
+    },
+    "C4": {
+      "pass": true,
+      "clip_drill": 1,
+      "video_element": 1,
+      "no_clips_banner_after_seed": 0
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Tag a real .mp4 clip (cueId='blitzes', cueAtMs ≈ 1500).",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Start Clip mode. The clip auto-plays; WATCH overlay visible until cueAtMs.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Press commit after cue. Feedback shows reactionMs within ±33 ms of the tagged frame.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "Stop the drill. SummaryScreen shows the per-clip breakdown (data-testid='per-clip-breakdown').",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "Re-open Manage clips: the tagged clip is unchanged (clip-mode does not mutate the clip record).",
+      "signed_off": null
+    },
+    {
+      "id": "M6",
+      "description": "Saved SessionRecord.mode === 'clip' and each RepRecord carries clipId (inspect via DevTools).",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-27T20:33:41.877Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

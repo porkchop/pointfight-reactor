@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { useSession } from './store/session'
+import { useClipRunner } from './clipmode/runner'
 import {
   DEFAULT_SETTINGS,
   loadSettings,
@@ -26,10 +27,16 @@ const ClipTagScreen = lazy(() =>
   import('./ui/ClipTagScreen').then((m) => ({ default: m.ClipTagScreen })),
 )
 
+const ClipDrillScreen = lazy(() =>
+  import('./ui/ClipDrillScreen').then((m) => ({ default: m.ClipDrillScreen })),
+)
+
 type IdleView = 'idle' | 'settings' | 'analytics' | 'pair' | 'clips' | 'tag'
 
 function App() {
   const phase = useSession((s) => s.phase)
+  const clipPhase = useClipRunner((s) => s.phase)
+  const resetClip = useClipRunner((s) => s.reset)
   const [view, setView] = useState<IdleView>('idle')
   // Remember which view sent the user to pair so closing returns there.
   const [pairOpener, setPairOpener] = useState<'idle' | 'settings'>('settings')
@@ -87,6 +94,30 @@ function App() {
       </Suspense>
     )
   }
+  // Clip-mode routing — checked before the live-session routing so that a
+  // running clip drill is not pre-empted by useSession.phase=='idle'.
+  if (clipPhase !== 'idle' && clipPhase !== 'ended') {
+    return (
+      <Suspense fallback={<div className="screen">Loading clip drill…</div>}>
+        <ClipDrillScreen
+          commitKeyCode={settings.commitKeyCode}
+          commitKeyLabel={settings.commitKeyLabel}
+        />
+      </Suspense>
+    )
+  }
+  if (clipPhase === 'ended') {
+    return (
+      <SummaryScreen
+        mode="clip"
+        onClose={() => {
+          resetClip()
+          setView('idle')
+        }}
+      />
+    )
+  }
+
   if (phase === 'idle')
     return (
       <IdleScreen

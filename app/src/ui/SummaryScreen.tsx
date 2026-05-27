@@ -1,21 +1,65 @@
 import { useMemo } from 'react'
 import { useSession, getSessionSummary } from '../store/session'
-import { antiRhythmSignal, cueBreakdown } from '../engine/drill'
+import { useClipRunner } from '../clipmode/runner'
+import { antiRhythmSignal, cueBreakdown, summarize } from '../engine/drill'
 import { CUE_LIBRARY } from '../cues/library'
-import type { CueId } from '../engine/types'
+import type { CueId, RepRecord } from '../engine/types'
 
-export function SummaryScreen() {
-  const reps = useSession((s) => s.reps)
-  const reset = useSession((s) => s.reset)
-  const start = useSession((s) => s.start)
-  const persistError = useSession((s) => s.persistError)
-  const inputSource = useSession((s) => s.inputSource)
-  const config = useSession((s) => s.config)
+interface SummaryScreenProps {
+  /** Phase 6.3 — when 'clip', reads from useClipRunner and shows a per-clip
+   *  breakdown. Defaults to 'live' for back-compat with all prior call sites. */
+  mode?: 'live' | 'clip'
+  /** Phase 6.3 — clip-mode resets through here so App.tsx can route back to Idle. */
+  onClose?: () => void
+}
+
+export function SummaryScreen({ mode = 'live', onClose }: SummaryScreenProps = {}) {
+  const liveReps = useSession((s) => s.reps)
+  const liveReset = useSession((s) => s.reset)
+  const liveStart = useSession((s) => s.start)
+  const livePersistError = useSession((s) => s.persistError)
+  const liveInputSource = useSession((s) => s.inputSource)
+  const liveConfig = useSession((s) => s.config)
   const cleared = useSession((s) => s.cleared)
 
-  const summary = useMemo(() => getSessionSummary(reps), [reps])
+  const clipReps = useClipRunner((s) => s.reps)
+  const clipInputSource = useClipRunner((s) => s.inputSource)
+  const clipConfig = useClipRunner((s) => s.config)
+  const clipPool = useClipRunner((s) => s.pool)
+  const clipPersistError = useClipRunner((s) => s.persistError)
+
+  const isClip = mode === 'clip'
+  const reps: RepRecord[] = isClip ? clipReps : liveReps
+  const inputSource = isClip ? clipInputSource : liveInputSource
+  const config = isClip ? clipConfig : liveConfig
+  const persistError = isClip ? clipPersistError : livePersistError
+
+  const summary = useMemo(
+    () => (isClip ? summarize(reps) : getSessionSummary(reps)),
+    [reps, isClip],
+  )
   const breakdown = useMemo(() => cueBreakdown(reps), [reps])
   const rhythm = useMemo(() => antiRhythmSignal(reps), [reps])
+
+  // Per-clip cueBreakdown rows, keyed by clip-id, for clip-mode sessions only.
+  const perClipBreakdown = useMemo(() => {
+    if (!isClip) return []
+    const byClipId = new Map<string, RepRecord[]>()
+    for (const r of reps) {
+      if (!r.clipId) continue
+      const list = byClipId.get(r.clipId) ?? []
+      list.push(r)
+      byClipId.set(r.clipId, list)
+    }
+    return Array.from(byClipId.entries()).map(([clipId, list]) => {
+      const clip = clipPool.find((c) => c.id === clipId)
+      return {
+        clipId,
+        clipName: clip?.name ?? clipId,
+        rows: cueBreakdown(list),
+      }
+    })
+  }, [reps, isClip, clipPool])
 
   const breakdownById = useMemo(() => {
     const m = new Map<CueId, (typeof breakdown)[number]>()
@@ -101,15 +145,66 @@ export function SummaryScreen() {
         </tbody>
       </table>
 
+      {isClip && perClipBreakdown.length > 0 && (
+        <>
+          <h2>By clip</h2>
+          {perClipBreakdown.map(({ clipId, clipName, rows }) => (
+            <table
+              key={clipId}
+              className="cue-table per-clip"
+              data-testid="per-clip-breakdown"
+              data-clip-id={clipId}
+            >
+              <caption>{clipName}</caption>
+              <thead>
+                <tr>
+                  <th>Cue</th>
+                  <th>Reps</th>
+                  <th>Correct</th>
+                  <th>FS</th>
+                  <th>Hes</th>
+                  <th>Late</th>
+                  <th>Avg RT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const cue = CUE_LIBRARY.find((c) => c.id === row.cueId)
+                  return (
+                    <tr key={row.cueId}>
+                      <td>{cue?.label ?? row.cueId}</td>
+                      <td>{row.reps}</td>
+                      <td>{row.correct}</td>
+                      <td>{row.falseStarts}</td>
+                      <td>{row.hesitations}</td>
+                      <td>{row.lateMisses}</td>
+                      <td>
+                        {row.avgRtMs === null ? '—' : `${row.avgRtMs}`}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          ))}
+        </>
+      )}
+
       <div className="actions">
+        {!isClip && (
+          <button
+            type="button"
+            className="primary"
+            onClick={() => liveStart(config, undefined, inputSource)}
+          >
+            Start another session
+          </button>
+        )}
         <button
           type="button"
-          className="primary"
-          onClick={() => start(config, undefined, inputSource)}
+          className="link"
+          onClick={() => (isClip ? onClose?.() : liveReset())}
         >
-          Start another session
-        </button>
-        <button type="button" className="link" onClick={() => reset()}>
           Back to start
         </button>
       </div>
