@@ -22,13 +22,18 @@ const ClipLibraryScreen = lazy(() =>
   })),
 )
 
-type IdleView = 'idle' | 'settings' | 'analytics' | 'pair' | 'clips'
+const ClipTagScreen = lazy(() =>
+  import('./ui/ClipTagScreen').then((m) => ({ default: m.ClipTagScreen })),
+)
+
+type IdleView = 'idle' | 'settings' | 'analytics' | 'pair' | 'clips' | 'tag'
 
 function App() {
   const phase = useSession((s) => s.phase)
   const [view, setView] = useState<IdleView>('idle')
   // Remember which view sent the user to pair so closing returns there.
   const [pairOpener, setPairOpener] = useState<'idle' | 'settings'>('settings')
+  const [taggingClipId, setTaggingClipId] = useState<string | null>(null)
   const [settings, setSettings] = useState<SettingsRecord>(DEFAULT_SETTINGS)
 
   useEffect(() => {
@@ -52,7 +57,26 @@ function App() {
   if (view === 'clips') {
     return (
       <Suspense fallback={<div className="screen">Loading clip library…</div>}>
-        <ClipLibraryScreen onClose={() => setView('idle')} />
+        <ClipLibraryScreen
+          onClose={() => setView('idle')}
+          onTagClip={(clipId) => {
+            setTaggingClipId(clipId)
+            setView('tag')
+          }}
+        />
+      </Suspense>
+    )
+  }
+  if (view === 'tag' && taggingClipId) {
+    return (
+      <Suspense fallback={<div className="screen">Loading tag editor…</div>}>
+        <ClipTagScreen
+          clipId={taggingClipId}
+          onClose={() => {
+            setTaggingClipId(null)
+            setView('clips')
+          }}
+        />
       </Suspense>
     )
   }

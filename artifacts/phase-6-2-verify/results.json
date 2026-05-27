@@ -1,0 +1,64 @@
+{
+  "phase": "phase-6.2",
+  "startedAt": "2026-05-27T20:04:16.462Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "tag_buttons_when_empty": 0,
+      "import_label": 1
+    },
+    "C2": {
+      "pass": true,
+      "tag_buttons": 1,
+      "needs_tag_markers": 1
+    },
+    "C3": {
+      "pass": true,
+      "cue_option_count": 8,
+      "scrub": 1,
+      "frame_back": 1,
+      "frame_forward": 1,
+      "save": 1,
+      "close": 1
+    },
+    "C4": {
+      "pass": true,
+      "needs_tag_after_save": 0,
+      "prefilled_cue": "blitzes"
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Import 2–3 real .mp4 clips via Manage clips.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Open Tag on one. The custom scrub bar tracks <video> currentTime within one frame.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Step ±1 frame with the buttons. Video advances/retreats by ~1/30 s.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "Pick a cue + Save. Reload; re-open Tag; cue-select prefilled, scrub at saved cueAtMs.",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "Library: tagged clip lacks \"needs tag\" marker; untagged siblings retain it.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-27T20:04:23.226Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

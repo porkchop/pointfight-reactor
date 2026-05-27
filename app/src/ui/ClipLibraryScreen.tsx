@@ -13,6 +13,8 @@ import type { AddClipResult, ClipRecord } from '../clipmode/types'
 
 interface ClipLibraryScreenProps {
   onClose: () => void
+  /** Phase 6.2 — open ClipTagScreen for `(cueId, cueAtMs)` tagging. */
+  onTagClip?: (clipId: string) => void
 }
 
 function formatBytes(bytes: number): string {
@@ -35,7 +37,7 @@ async function fetchLibraryState(): Promise<
   return Promise.all([listClips(), getQuotaEstimate()])
 }
 
-export function ClipLibraryScreen({ onClose }: ClipLibraryScreenProps) {
+export function ClipLibraryScreen({ onClose, onTagClip }: ClipLibraryScreenProps) {
   const [clips, setClips] = useState<ClipRecord[]>([])
   const [estimate, setEstimate] = useState<QuotaEstimate | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -187,14 +189,26 @@ export function ClipLibraryScreen({ onClose }: ClipLibraryScreenProps) {
                   )}
                 </span>
               </div>
-              <button
-                type="button"
-                className="link"
-                onClick={() => void handleDelete(clip)}
-                data-testid="clip-delete"
-              >
-                Delete
-              </button>
+              <div className="clip-row-actions">
+                {onTagClip && (
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => onTagClip(clip.id)}
+                    data-testid="clip-tag-open"
+                  >
+                    Tag
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => void handleDelete(clip)}
+                  data-testid="clip-delete"
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>

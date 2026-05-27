@@ -3,10 +3,12 @@ import { getDb } from '../store/db'
 import {
   addClip,
   deleteClip,
+  getClip,
   getQuotaEstimate,
   isSoftWarnSize,
   listClips,
   quotaBanner,
+  updateClipTag,
 } from './library'
 import { CLIP_HARD_CAP_BYTES, CLIP_SOFT_WARN_BYTES } from './types'
 
@@ -157,6 +159,87 @@ describe('listClips', () => {
 
   it('returns an empty array on an empty table', async () => {
     expect(await listClips()).toEqual([])
+  })
+})
+
+describe('getClip', () => {
+  beforeEach(async () => {
+    await clearClips()
+  })
+
+  it('returns the stored clip by id', async () => {
+    const added = await addClip(makeFile({ name: 'one.mp4' }), {
+      durationMs: 1234,
+    })
+    expect(added.ok).toBe(true)
+    if (!added.ok) return
+    const fetched = await getClip(added.clip.id)
+    expect(fetched?.name).toBe('one.mp4')
+    expect(fetched?.durationMs).toBe(1234)
+  })
+
+  it('returns null for an unknown id', async () => {
+    expect(await getClip('missing-id')).toBeNull()
+  })
+})
+
+describe('updateClipTag', () => {
+  beforeEach(async () => {
+    await clearClips()
+  })
+
+  it('writes cueId + cueAtMs onto an existing clip and returns the updated row', async () => {
+    const added = await addClip(makeFile({ name: 'tag.mp4' }), {
+      durationMs: 5000,
+    })
+    expect(added.ok).toBe(true)
+    if (!added.ok) return
+    const updated = await updateClipTag(added.clip.id, {
+      cueId: 'steps_in',
+      cueAtMs: 1234,
+    })
+    expect(updated?.cueId).toBe('steps_in')
+    expect(updated?.cueAtMs).toBe(1234)
+
+    const reloaded = await getClip(added.clip.id)
+    expect(reloaded?.cueId).toBe('steps_in')
+    expect(reloaded?.cueAtMs).toBe(1234)
+  })
+
+  it('overwrites a prior tag in place (no version history)', async () => {
+    const added = await addClip(makeFile({ name: 'tag.mp4' }), {
+      durationMs: 5000,
+    })
+    if (!added.ok) throw new Error('seed failed')
+    await updateClipTag(added.clip.id, { cueId: 'steps_in', cueAtMs: 100 })
+    await updateClipTag(added.clip.id, { cueId: 'blitzes', cueAtMs: 250 })
+    const reloaded = await getClip(added.clip.id)
+    expect(reloaded?.cueId).toBe('blitzes')
+    expect(reloaded?.cueAtMs).toBe(250)
+  })
+
+  it('clamps a negative cueAtMs to 0', async () => {
+    const added = await addClip(makeFile(), { durationMs: 1000 })
+    if (!added.ok) throw new Error('seed failed')
+    await updateClipTag(added.clip.id, { cueId: 'blitzes', cueAtMs: -50 })
+    const reloaded = await getClip(added.clip.id)
+    expect(reloaded?.cueAtMs).toBe(0)
+  })
+
+  it('clamps cueAtMs to durationMs when over (avoids tagging past end of clip)', async () => {
+    const added = await addClip(makeFile(), { durationMs: 2000 })
+    if (!added.ok) throw new Error('seed failed')
+    await updateClipTag(added.clip.id, { cueId: 'blitzes', cueAtMs: 9999 })
+    const reloaded = await getClip(added.clip.id)
+    expect(reloaded?.cueAtMs).toBe(2000)
+  })
+
+  it('returns null when the clip id does not exist', async () => {
+    const out = await updateClipTag('not-real', {
+      cueId: 'steps_in',
+      cueAtMs: 100,
+    })
+    expect(out).toBeNull()
   })
 })
 

@@ -786,4 +786,73 @@ tr.compare-baseline_only td {
 .clip-needs-tag {
   color: var(--gym-warn);
 }
+.clip-row-actions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+/* ---- Clip tag screen (Phase 6.2) ---- */
+.clip-tag {
+  align-items: stretch;
+  justify-content: flex-start;
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+}
+.clip-tag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+.clip-tag-header h1 {
+  margin: 0;
+}
+.clip-tag-name {
+  font-family: ui-monospace, monospace;
+  color: var(--gym-muted);
+  margin: 0 0 0.8rem;
+}
+.clip-tag-video {
+  width: 100%;
+  max-height: 360px;
+  background: #000;
+  border-radius: 8px;
+}
+.clip-tag-scrub {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1rem 0 0.4rem;
+}
+.clip-tag-scrub input[type='range'] {
+  flex: 1;
+}
+.clip-tag-position {
+  font-family: ui-monospace, monospace;
+  color: var(--gym-muted);
+  margin: 0 0 1rem;
+}
+.clip-tag-cue-select {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+}
+.clip-tag-cue-select select {
+  font: inherit;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+.clip-tag-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.clip-tag-saved {
+  color: var(--gym-accent, #6ec24b);
+  font-weight: 600;
+}
 

@@ -1,3 +1,4 @@
+import type { CueId } from '../engine/types'
 import { getDb } from '../store/db'
 import {
   CLIP_HARD_CAP_BYTES,
@@ -87,6 +88,53 @@ export async function listClips(): Promise<ClipRecord[]> {
     return await db.clips.orderBy('importedAt').reverse().toArray()
   } catch {
     return []
+  }
+}
+
+export async function getClip(id: string): Promise<ClipRecord | null> {
+  const db = getDb()
+  if (!db) return null
+  try {
+    return (await db.clips.get(id)) ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Writes a single `(cueId, cueAtMs)` tag onto an existing clip in place.
+ * Returns the updated row, or `null` when the clip does not exist or the
+ * DB is unavailable. `cueAtMs` is clamped to `[0, durationMs]` so tagging
+ * past the end of the clip is impossible.
+ *
+ * Per the Phase 6 decision memo §2: one tag per clip; edits overwrite —
+ * there is no version history. The columns are not indexed (see
+ * `db.ts:34-40`'s v4 schema declares neither `cueId` nor `cueAtMs` as
+ * keys), so this is a blob-internal update and does not require a Dexie
+ * version bump.
+ */
+export async function updateClipTag(
+  id: string,
+  tag: { cueId: CueId; cueAtMs: number },
+): Promise<ClipRecord | null> {
+  const db = getDb()
+  if (!db) return null
+  try {
+    const existing = await db.clips.get(id)
+    if (!existing) return null
+    const clamped = Math.max(
+      0,
+      Math.min(Math.round(tag.cueAtMs), existing.durationMs),
+    )
+    const updated: ClipRecord = {
+      ...existing,
+      cueId: tag.cueId,
+      cueAtMs: clamped,
+    }
+    await db.clips.put(updated)
+    return updated
+  } catch {
+    return null
   }
 }
 

@@ -1344,3 +1344,34 @@ artifact that updates `docs/PHASES.md` with the 6.1/6.2/6.3
 decomposition. No second red-team pass required — the resolutions are
 mechanical, not architectural.
 
+
+
+#### Testing-strategy lock-in (Phase 6.2)
+
+Phase 6.2 is the first phase to introduce a `.test.tsx` component-test
+surface (`ClipTagScreen.test.tsx`) — prior phases tested all UI gates
+exclusively through the `verify-phaseN.mjs` Playwright scripts under
+§B2 / §B5 concessions. The reason for the expansion:
+
+- The Phase 6.2 acceptance criterion in `docs/PHASES.md` literally names
+  `ClipTagScreen.test.tsx` "covers cue-id selection and persistence
+  with a stubbed `<video>` element".
+- `@testing-library/react` is the minimal vitest-compatible primitive
+  for asserting JSX-rendered behavior under jsdom. Adding it (one
+  devDep, no runtime cost) is preferable to either (a) skipping the
+  literal `.test.tsx` requirement or (b) hand-rolling React DOM
+  rendering with `act` boilerplate.
+- The `verify-phase6-2.mjs` Playwright script remains the gate for the
+  user-visible end-to-end flow (open library → click Tag → cue select
+  → Save → reload → prefill); the `.test.tsx` covers component-level
+  contracts (cue-id selection, prefill, frame-step math, blob-URL
+  lifecycle stability across re-renders / saves).
+- Project convention going forward: pure logic in `*.test.ts` under
+  the owning module; component contracts in colocated `*.test.tsx`
+  with @testing-library/react; user-visible end-to-end flows in
+  `verify-phaseN.mjs`. The three layers do not overlap.
+- `playwright` was added to `app/package.json` devDependencies in this
+  phase as well; prior `verify-phaseN.mjs` scripts already imported it
+  but the dep was previously implicit (relied on a globally-available
+  playwright). Making it explicit is overdue housekeeping triggered
+  by this phase's verify-script run.
