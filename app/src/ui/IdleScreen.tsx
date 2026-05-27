@@ -16,12 +16,15 @@ interface IdleScreenProps {
   onOpenAnalytics: () => void
   /** Phase 2b.4 — present so the "Phone not paired — pair now" banner button has a destination. */
   onOpenPair?: () => void
+  /** Phase 6.1 — navigates to ClipLibraryScreen for import / list / delete. */
+  onOpenClips?: () => void
 }
 
 export function IdleScreen({
   onOpenSettings,
   onOpenAnalytics,
   onOpenPair,
+  onOpenClips,
 }: IdleScreenProps) {
   const start = useSession((s) => s.start)
   const [recent, setRecent] = useState<SessionRecord[]>([])
@@ -107,6 +110,16 @@ export function IdleScreen({
         <button type="button" className="link" onClick={onOpenAnalytics}>
           Analytics
         </button>
+        {onOpenClips && (
+          <button
+            type="button"
+            className="link"
+            onClick={onOpenClips}
+            data-testid="manage-clips-link"
+          >
+            Manage clips
+          </button>
+        )}
       </div>
 
       {recent.length > 0 && (

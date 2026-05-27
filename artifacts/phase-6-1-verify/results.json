@@ -1,0 +1,68 @@
+{
+  "phase": "phase-6.1",
+  "startedAt": "2026-05-27T18:15:53.875Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "link_count": 1
+    },
+    "C2": {
+      "pass": true,
+      "empty_hint": 1,
+      "import_label": 1,
+      "close_button": 1
+    },
+    "C3": {
+      "pass": true,
+      "note": "Headless chromium uniformly ships navigator.storage.estimate; this is the DOM-presence check for the quota element. Live quota math remains MANUAL per §B5.",
+      "quota_count": 1
+    },
+    "C4": {
+      "pass": true
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Import a ~5 MB, ~50 MB, and ~150 MB .mp4 file. All three appear with non-zero duration.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Reload the page; all three clips persist with the same metadata.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Delete one clip via the Delete button; the confirm prompt fires; the clip disappears and reload does not show it.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "A >200 MB .mp4 import is rejected with the \"200 MB cap\" error banner.",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "A non-mp4 file import is rejected with the \"type not supported\" error banner.",
+      "signed_off": null
+    },
+    {
+      "id": "M6",
+      "description": "After importing several clips, the quota banner text reflects navigator.storage.estimate within a few MB of the sum of clip sizes.",
+      "signed_off": null
+    },
+    {
+      "id": "M7",
+      "description": "A >100 MB clip import shows the soft-warning banner (data-testid=\"clip-soft-warn\").",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-05-27T18:15:57.749Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

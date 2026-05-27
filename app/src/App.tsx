@@ -16,7 +16,13 @@ const PairScreen = lazy(() =>
   import('./ui/PairScreen').then((m) => ({ default: m.PairScreen })),
 )
 
-type IdleView = 'idle' | 'settings' | 'analytics' | 'pair'
+const ClipLibraryScreen = lazy(() =>
+  import('./ui/ClipLibraryScreen').then((m) => ({
+    default: m.ClipLibraryScreen,
+  })),
+)
+
+type IdleView = 'idle' | 'settings' | 'analytics' | 'pair' | 'clips'
 
 function App() {
   const phase = useSession((s) => s.phase)
@@ -43,6 +49,13 @@ function App() {
   if (view === 'analytics') {
     return <AnalyticsScreen onClose={() => setView('idle')} />
   }
+  if (view === 'clips') {
+    return (
+      <Suspense fallback={<div className="screen">Loading clip library…</div>}>
+        <ClipLibraryScreen onClose={() => setView('idle')} />
+      </Suspense>
+    )
+  }
   if (view === 'pair') {
     return (
       <Suspense fallback={<div className="screen">Loading pair UI…</div>}>
@@ -59,6 +72,7 @@ function App() {
           setPairOpener('idle')
           setView('pair')
         }}
+        onOpenClips={() => setView('clips')}
       />
     )
   if (phase === 'ended') return <SummaryScreen />

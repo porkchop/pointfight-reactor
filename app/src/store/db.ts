@@ -2,12 +2,14 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { RepRecord, SessionRecord } from '../engine/types'
 import type { SettingsRecord } from './settings-types'
 import type { ProfileRecord } from './profiles'
+import type { ClipRecord } from '../clipmode/types'
 
 export class ReactorDB extends Dexie {
   sessions!: EntityTable<SessionRecord, 'id'>
   reps!: EntityTable<RepRecord, 'id'>
   settings!: EntityTable<SettingsRecord, 'id'>
   profiles!: EntityTable<ProfileRecord, 'id'>
+  clips!: EntityTable<ClipRecord, 'id'>
 
   constructor() {
     super('pointfight-reactor')
@@ -25,6 +27,16 @@ export class ReactorDB extends Dexie {
       reps: 'id, sessionId, cueId',
       settings: 'id',
       profiles: 'id, createdAt',
+    })
+    // Phase 6.1: clip library. `clipId` index on reps lights up in 6.3 when
+    // RepRecord gains the field; pre-v4 reps remain readable and simply
+    // never match `where('clipId').equals(...)` queries.
+    this.version(4).stores({
+      sessions: 'id, startedAt',
+      reps: 'id, sessionId, cueId, clipId',
+      settings: 'id',
+      profiles: 'id, createdAt',
+      clips: 'id, importedAt',
     })
   }
 }
