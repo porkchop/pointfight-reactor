@@ -27,14 +27,41 @@ npm run build    # production build → app/dist
 4. Each rep is scored: correct, late, hesitation, or false start.
 5. Press **Esc** to stop and see the session summary.
 
+## Features
+
+- **Cue trainer** — randomized go / no-go cues, configurable pre-cue delay,
+  keyboard input, per-rep scoring (correct / late / hesitation / false start).
+- **Visuospatial cues** — animated SVG pictographs at far / mid / in-range
+  distances, with an optional distance-tracking audio tone and a text overlay
+  for learning.
+- **Round structure** — configurable work / rest / round count with a
+  continuous-motion indicator and an optional penalty clear-list.
+- **Physical input** — USB foot pedal (rebindable commit key) or phone-as-sensor
+  (accelerometer commit over a WebRTC DataChannel, paired by QR code), with
+  keyboard as fallback. Input source is flagged in session metadata.
+- **Drill profiles** — create / edit / save profiles: cue set, delay range,
+  late + hesitation thresholds, response window, scoring weights, round
+  structure, distance axis on/off.
+- **Analytics** — reaction time by cue type, false-start and hesitation rate
+  over time, best-10-rep average and trend, and a session-over-session
+  comparison view, plus anti-rhythm pattern detection.
+- **Video opponent mode** — import local .mp4 clips, tag a cue type + cue
+  timestamp, then run a clip-driven drill that scores reps off the tagged
+  cue moment through the same engine, with a per-clip summary breakdown.
+
 ## Project layout
 
 ```
 app/         Vite + React + TypeScript app
-  src/engine/   pure drill engine (cue selection, classification, summary)
-  src/cues/     cue library
-  src/store/    Zustand + Dexie/IndexedDB persistence
-  src/ui/       Idle / Trainer / Summary screens
+  src/engine/    pure drill engine (cue selection, classification, scoring,
+                 analytics, shared rep/session persistence)
+  src/cues/      cue library + animated pictographs + palette
+  src/audio/     distance-tracking tone synthesis
+  src/store/     Zustand + Dexie/IndexedDB persistence
+  src/phone/     phone-as-sensor: WebRTC peer, QR pairing, motion detection
+  src/clipmode/  video-opponent runner, clip selection, runtime detection
+  src/ui/        Idle / Trainer / Summary / Analytics / Settings / Pair /
+                 Calibrate / clip library / clip tagging / clip drill screens
 docs/        spec, architecture, phase plan, quality gates
 artifacts/   per-phase approval and decision artifacts
 scripts/     phasekit verification + container setup
@@ -49,9 +76,15 @@ scripts/     phasekit verification + container setup
 
 ## Status
 
+MVP complete — all planned phases shipped and approved (271 passing tests).
+
 - **Phase 1** — Local MVP cue trainer · ✅ approved
-- Phase 2 — Drill configuration · pending
-- Phase 3 — Video opponent mode · pending
-- Phase 4 — Foot pedal / kiosk mode · pending
-- Phase 5 — Webcam pose detection prototype · pending
-- Phase 6 — Analytics and competition mode · pending
+- **Phase 2** — Physical input (foot pedal) + round structure · ✅ shipped
+- **Phase 2b** — Phone-as-sensor (WebRTC + QR pairing + accelerometer) · ✅ shipped (2b.1–2b.4)
+- **Phase 3** — Visuospatial cues + distance axis · ✅ shipped
+- **Phase 4** — Drill configuration + scoring refinement · ✅ shipped
+- **Phase 5** — Analytics + competition / taper mode · ✅ shipped
+- **Phase 6** — Video opponent mode · ✅ shipped (6.1–6.3)
+- Phase 7 — Webcam pose detection prototype · deferred (post-tournament, non-goal for MVP)
+
+See [`docs/PHASES.md`](docs/PHASES.md) for the full phase plan and acceptance criteria.

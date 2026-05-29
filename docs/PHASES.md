@@ -1,12 +1,17 @@
 # Phase Plan
 
+> **Status:** MVP complete. Phases 1–6 (including 2b.1–2b.4 and 6.1–6.3) are
+> shipped and approved. Phase 6.3's `artifacts/phase-approval.json` carries
+> `"project_complete": true`. Phase 7 (Webcam Pose Detection) is deferred
+> post-tournament as a non-goal for the MVP.
+
 ## Phase 1: Local MVP Cue Trainer ✅ approved
 Build a React/TypeScript app with fullscreen cue presentation, randomized
 delays, keyboard input, scoring, and local session history.
 
 (Unchanged — already shipped.)
 
-## Phase 2: Physical Input + Round Structure  [PRIORITY — target days 1–3]
+## Phase 2: Physical Input + Round Structure ✅ shipped
 Make every rep require a physical commitment (foot pedal), and put reps
 inside a workout.
 
@@ -26,7 +31,7 @@ Acceptance criteria:
 - Optional penalty counter: false starts and hesitations add reps to a
   during-rest clear-list.
 
-## Phase 2b: Phone-as-Sensor  [post-Phase-5, decomposed into 2b.1–2b.4]
+## Phase 2b: Phone-as-Sensor ✅ shipped  [decomposed into 2b.1–2b.4]
 Companion page on a phone on local network sends a "commit" event on
 accelerometer threshold (sharp forward step / punch impulse).
 
@@ -49,7 +54,7 @@ and sensor calibration. Foot pedal + keyboard cover the "physical
 commitment" requirement for the 2-week training window. Phase 2b now
 runs post-tournament-prep (post-Phase-5), in four small ships.
 
-### Phase 2b.1: LAN companion + WebRTC DataChannel transport
+### Phase 2b.1: LAN companion + WebRTC DataChannel transport ✅ shipped
 The athlete's phone loads `/phone` from the laptop on the same Wi-Fi and
 establishes a WebRTC DataChannel via manual offer/answer SDP paste in
 textareas. This is intentional throwaway UX — 2b.2 replaces paste with QR.
@@ -134,7 +139,7 @@ Acceptance criteria:
 - Manual real-device QA at `app/verify-phase-2b4.mjs` covers the full
   pair → calibrate → drill → summary flow with `inputSource: 'phone'`.
 
-## Phase 3: Visuospatial Cues + Distance Axis  [PRIORITY — target days 3–6]
+## Phase 3: Visuospatial Cues + Distance Axis ✅ shipped
 Replace text cues with animated silhouettes/symbols and add the distance
 dimension.
 
@@ -150,7 +155,7 @@ Acceptance criteria:
 - Cue palette and animations are data-driven (JSON or TS map) so new cues
   can be added without code changes.
 
-## Phase 4: Drill Configuration + Scoring Refinement  [target days 6–8]
+## Phase 4: Drill Configuration + Scoring Refinement ✅ shipped
 Make the engine configurable and tighten the scoring so it measures what
 the spec claims to measure.
 
@@ -166,7 +171,7 @@ Acceptance criteria:
   surface patterns (e.g. "you false-start most often after 3 consecutive
   go cues").
 
-## Phase 5: Analytics and Competition / Taper Mode  [target days 8–10]
+## Phase 5: Analytics and Competition / Taper Mode ✅ shipped
 Tournament-prep reporting and a low-volume high-speed mode for the final
 days before competition.
 
@@ -179,7 +184,7 @@ Acceptance criteria:
   are slowest or least accurate on.
 - Session-over-session comparison view.
 
-## Phase 6: Video Opponent Mode  [next, decomposed into 6.1–6.3]
+## Phase 6: Video Opponent Mode ✅ shipped  [decomposed into 6.1–6.3]
 Add local video clip import, manual cue-time tagging, and a video-driven
 drill mode that reuses the existing rep-scoring engine.
 
@@ -202,7 +207,7 @@ clip library in two weeks was unrealistic for the pre-tournament window.
 Phases 1-5 + 2b.1-2b.4 have shipped; Phase 6 now follows in three small
 ships post-tournament.
 
-### Phase 6.1: Clip library — import, store, list, delete
+### Phase 6.1: Clip library — import, store, list, delete ✅ shipped
 Persist local .mp4 clips as Blobs in Dexie at `version(4)`, alongside an
 import / list / delete UI accessible from IdleScreen. The existing
 sessions/reps/settings/profiles tables are preserved unchanged.
@@ -256,7 +261,7 @@ Acceptance criteria:
   precision (within ~1 frame) is a MANUAL gate per §B5 of the
   decision memo.
 
-### Phase 6.3: Clip-mode drill + RT measurement + per-clip results
+### Phase 6.3: Clip-mode drill + RT measurement + per-clip results ✅ approved — project complete
 A `clipmode/runner.ts` Zustand slice drives the `<video>` element, fires
 `recordPress`-equivalent commits, and persists results through a new
 shared `engine/persistence.ts:commitRep()` helper that **both** the
