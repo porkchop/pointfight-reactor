@@ -1,0 +1,76 @@
+{
+  "phase": "phase-2b.5",
+  "startedAt": "2026-06-02T17:45:09.617Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "observed": {
+        "phoneHeader": 1
+      }
+    },
+    "C2": {
+      "pass": true,
+      "observed": {
+        "phoneHeader": 0,
+        "startButton": 1
+      }
+    },
+    "C3": {
+      "pass": true,
+      "observed": {
+        "phoneHeader": 1
+      }
+    },
+    "C4": {
+      "pass": true,
+      "observed": {
+        "hash": "#role=phone"
+      }
+    },
+    "C5": {
+      "pass": true,
+      "qr_canvas_non_empty": true,
+      "phone_url_starts_with": "http://192.168.1.42:5173/#role=phone&offer=H4sIAAAAAAAAA4WSy27bMBBF9wL0D_wBKkOKosQBtKgtBwi"
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Public Pages deployment: Pair phone → offer QR appears within 5s; phone-url is the Pages origin (not a LAN IP) with #role=phone&offer=.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Phone (same Wi-Fi) scans the offer QR, opens the SAME Pages URL, auto-renders an answer QR within 3s — no blank/hanging page.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Laptop scans the phone answer QR; PairScreen reaches `connected`.",
+      "signed_off": null
+    },
+    {
+      "id": "M4",
+      "description": "Phone \"Send commit\" → laptop shows \"Last commit received at +Xms\".",
+      "signed_off": null
+    },
+    {
+      "id": "M5",
+      "description": "iOS on the Pages origin: \"Enable motion sensor\" prompts and is granted with NO mkcert setup (trusted HTTPS).",
+      "signed_off": null
+    },
+    {
+      "id": "M6",
+      "description": "Negative: phone on mobile data / different network does not connect; after ~20s laptop shows the `connect-timeout` same-Wi-Fi diagnostic.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-06-02T17:45:14.819Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "best_effort_pass": true,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

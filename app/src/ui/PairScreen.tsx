@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 import jsQR from 'jsqr'
 import { createPeer, type PeerHandle, type PeerState } from '../phone/peer'
 import { buildPhoneUrl } from '../phone/pair-url'
-import { tryDecodeOffer, tryEncodeOffer } from '../phone/qr'
+import { fitsSingleQr, tryDecodeOffer, tryEncodeOffer } from '../phone/qr'
 import type { PhoneMessage } from '../phone/wire'
 import { loadActiveProfile, loadSettings } from '../store/settings'
 import { DEFAULT_DEBOUNCE_MS, getActiveThresholdG } from '../phone/motion'
@@ -28,6 +28,11 @@ export type PairQrState =
   | 'scanning-answer'
   | 'connected'
   | 'error'
+
+// How long to wait for the DataChannel after the handshake is in flight
+// before showing the same-network diagnostic. ICE failure typically
+// surfaces within ~10–15s; 20s leaves margin without feeling stuck.
+const CONNECT_TIMEOUT_MS = 20_000
 
 /**
  * Phase 2b.2 — laptop-side pairing.
@@ -64,6 +69,7 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
     null,
   )
   const [err, setErr] = useState<string | null>(null)
+  const [connectTimedOut, setConnectTimedOut] = useState(false)
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [lastCommit, setLastCommit] = useState<{
     receivedAt: number
@@ -167,22 +173,31 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
           setQrState('showing-offer')
           return
         }
-        if (!ip) {
+        // Phase 2b.5: derive the phone URL from the laptop's current
+        // origin + base path so the phone loads the same deployment
+        // (Pages, LAN dev, …). `buildPhoneUrl` only needs the LAN IP when
+        // the laptop is on loopback; it returns null in that case if no IP
+        // is set, which is the one branch that still requires manual paste.
+        const url = buildPhoneUrl(window.location, ip || null, enc.payload)
+        if (!url) {
           setMode('manual')
           setAutoFallbackReason(
-            'Set your laptop’s LAN IP in Settings to enable QR pairing. Using manual paste.',
+            'Set your laptop’s LAN IP in Settings to enable QR pairing from a local dev server. Using manual paste.',
           )
           setQrState('showing-offer')
           return
         }
-        const url = buildPhoneUrl(
-          {
-            protocol: window.location.protocol,
-            lanIp: ip,
-            port: window.location.port,
-          },
-          enc.payload,
-        )
+        // The QR encodes the whole URL, not just the payload (2b.5). A long
+        // origin/base-path prefix can push an otherwise-fine SDP over the
+        // single-QR ceiling — check the assembled URL, not enc.byteLength.
+        if (!fitsSingleQr(url)) {
+          setMode('manual')
+          setAutoFallbackReason(
+            `Pairing URL (${url.length} chars) is too long for one QR — using manual paste.`,
+          )
+          setQrState('showing-offer')
+          return
+        }
         setPhoneUrl(url)
         setQrState('showing-offer')
       } catch (e) {
@@ -214,7 +229,29 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
     setPhoneUrl(null)
     setLastCommit(null)
     setStartedAt(null)
+    setConnectTimedOut(false)
   }
+
+  // --- Surface a diagnostic if the P2P connection never establishes ---
+  // The phone page can load fine (esp. from a public host) while the
+  // WebRTC DataChannel silently fails to connect — both ends must reach
+  // each other directly (same Wi-Fi, no client/guest isolation); there is
+  // no TURN relay. Show actionable guidance instead of an indefinite wait.
+  useEffect(() => {
+    // Only arm once the handshake is actually in flight and not yet
+    // connected: the laptop has shown its offer (and likely scanned the
+    // answer) or the peer reports it is connecting. The render guards the
+    // banner on `peerState !== 'connected'`, so a later success hides it
+    // without needing a synchronous reset here.
+    const inFlight =
+      peerState !== 'connected' &&
+      (qrState === 'scanning-answer' ||
+        peerState === 'connecting' ||
+        peerState === 'gathering_answer')
+    if (!inFlight) return
+    const id = setTimeout(() => setConnectTimedOut(true), CONNECT_TIMEOUT_MS)
+    return () => clearTimeout(id)
+  }, [peerState, qrState])
 
   // --- Draw the offer QR onto its canvas once we have a phoneUrl ---
   useEffect(() => {
@@ -392,7 +429,6 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
         <QrPanel
           qrState={qrState}
           phoneUrl={phoneUrl}
-          lanIp={lanIp}
           qrCanvasRef={qrCanvasRef}
           videoRef={videoRef}
           canvasRef={canvasRef}
@@ -431,6 +467,21 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
             Disconnect phone
           </button>
         )}
+        {(connectTimedOut || peerState === 'error') &&
+          peerState !== 'connected' && (
+            <div
+              className="banner warn"
+              role="status"
+              data-testid="connect-timeout"
+            >
+              The phone opened the page, but the two devices haven’t
+              connected. The data link is peer-to-peer over your local
+              network (no relay server), so both devices must be on the{' '}
+              <strong>same Wi-Fi</strong> with{' '}
+              <strong>guest / client isolation turned off</strong>. Phones on
+              mobile data or a different network can’t pair.
+            </div>
+          )}
       </section>
 
       {peerState === 'connected' && activeProfile && peerRef.current && (
@@ -453,7 +504,6 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
 function QrPanel({
   qrState,
   phoneUrl,
-  lanIp,
   qrCanvasRef,
   videoRef,
   canvasRef,
@@ -461,7 +511,6 @@ function QrPanel({
 }: {
   qrState: PairQrState
   phoneUrl: string | null
-  lanIp: string | null
   qrCanvasRef: React.RefObject<HTMLCanvasElement | null>
   videoRef: React.RefObject<HTMLVideoElement | null>
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -480,7 +529,7 @@ function QrPanel({
           </>
         ) : (
           <p className="hint" data-testid="qr-pending">
-            {lanIp ? 'Preparing offer…' : 'Set your laptop’s LAN IP in Settings to render a QR.'}
+            Preparing offer…
           </p>
         )}
       </section>
@@ -582,13 +631,7 @@ function ManualPanel({
 }
 
 function phoneUrlForManual(lanIp: string | null): string | null {
-  if (!lanIp) return null
-  return buildPhoneUrl(
-    {
-      protocol: window.location.protocol,
-      lanIp,
-      port: window.location.port,
-    },
-    null,
-  )
+  // Phase 2b.5: mirror the laptop's origin + base path; only a loopback
+  // dev host needs the LAN IP (and returns null without one).
+  return buildPhoneUrl(window.location, lanIp, null)
 }

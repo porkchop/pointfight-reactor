@@ -80,7 +80,7 @@ MVP complete — all planned phases shipped and approved (271 passing tests).
 
 - **Phase 1** — Local MVP cue trainer · ✅ approved
 - **Phase 2** — Physical input (foot pedal) + round structure · ✅ shipped
-- **Phase 2b** — Phone-as-sensor (WebRTC + QR pairing + accelerometer) · ✅ shipped (2b.1–2b.4)
+- **Phase 2b** — Phone-as-sensor (WebRTC + QR pairing + accelerometer) · ✅ shipped (2b.1–2b.5; 2b.5 makes QR pairing work from the public GitHub Pages deployment, not just a local dev server — phone and laptop must share the same Wi-Fi)
 - **Phase 3** — Visuospatial cues + distance axis · ✅ shipped
 - **Phase 4** — Drill configuration + scoring refinement · ✅ shipped
 - **Phase 5** — Analytics + competition / taper mode · ✅ shipped

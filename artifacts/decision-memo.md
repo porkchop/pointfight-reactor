@@ -1375,3 +1375,113 @@ exclusively through the `verify-phaseN.mjs` Playwright scripts under
   but the dep was previously implicit (relied on a globally-available
   playwright). Making it explicit is overdue housekeeping triggered
   by this phase's verify-script run.
+
+---
+
+# Phase 2b.5 — Static-host QR pairing
+
+## Problem
+
+Phases 2b.1–2b.4 built phone-as-sensor pairing against a **local Vite dev
+server**: the laptop runs `npm run dev`, the phone loads
+`http://<laptopLanIp>:5173/phone`, and the offer SDP rides in the URL
+fragment. The laptop *is* the web server, so the phone reaches it over the
+LAN. This works, but assumes the user is running a dev server.
+
+The app is also deployed to **GitHub Pages** (`.github/workflows/pages.yml`,
+`vite base: './'`) under a base path, reachable at a public HTTPS origin
+(e.g. `https://www.aaroncaswell.com/pointfight-reactor/`). Loading the
+companion from there is broken in three independent ways:
+
+1. **The QR points at the laptop, not the deployment.** `buildPhoneUrl`
+   built `<page-protocol>//<laptopLanIp>/phone` from the Settings LAN IP.
+   On Pages the page protocol is `https:` and the port is empty, so the QR
+   encoded `https://<lanIp>/phone` → port 443 on a machine with nothing
+   listening → the phone hangs on a blank page forever (the reported bug).
+2. **Base-path mismatch.** Route detection in `main.tsx` matched `^/phone`,
+   which never matches `/<repo>/phone`.
+3. **No SPA fallback.** Pages is static; `/<repo>/phone` 404s — there is no
+   server to rewrite unknown paths to `index.html`.
+
+## Decision
+
+Route the phone by a **hash role marker on the laptop's current origin +
+base path**, not by a `/phone` path against a Settings LAN IP.
+
+- The offer QR encodes `<laptop origin><base path>#role=phone&offer=<payload>`
+  derived from `window.location`. Wherever the laptop loaded the app, the
+  phone loads the *same* deployment.
+- The path always resolves to the real served `index.html`, so **no
+  `404.html`, no SPA fallback, and no Pages-workflow change are needed.**
+- `main.tsx` selects the phone companion via `isPhoneRoute(location)`:
+  the hash marker (new, host-agnostic) **or** the legacy `/phone` path
+  (kept so a hand-typed dev URL still works — backward compatible).
+- The WebRTC DataChannel stays peer-to-peer (host + STUN srflx, Google
+  STUN, **no TURN**). The page host is decoupled from the media path.
+
+### Localhost substitution
+
+`window.location.hostname` on a dev laptop is `localhost`/`127.0.0.1`,
+which the phone cannot reach. So `buildPhoneUrl` keeps the existing
+LAN-IP behaviour **only** for loopback hosts: substitute the Settings LAN
+IP (preserving the dev port), and if none is set return `null` so the
+caller falls back to manual paste. For any non-loopback (deployed) host the
+origin is used verbatim and the LAN IP is irrelevant.
+
+## Strategies considered
+
+| Option | Verdict |
+|---|---|
+| **A. `404.html` SPA shim** (copy `index.html` → `404.html` so `/<repo>/phone` resolves) | Rejected. Adds a build/workflow step, leaves a path that 404-then-200s (flaky on some CDNs), and still needs base-path-aware `^/phone` matching. |
+| **B. Absolute `base` + path route** | Rejected. Couples the route to a hard-coded base; breaks local dev at `/`. |
+| **C. Hash role marker on current origin** (chosen) | Single uniform URL shape that works on Pages, any static host, and local dev; needs no server cooperation; offer already lived in the hash. |
+
+## Resolved review findings (architecture-red-team + code-reviewer)
+
+- **Connectivity is the real limitation (red-team B2).** Serving the page
+  from a public origin **decouples "page loads" from "P2P connects."**
+  Under the old model the phone *had* to reach the laptop's LAN server, so
+  a loaded page implied a working data path. Now the page always loads; the
+  DataChannel only connects when both devices route directly to each other:
+  **same Wi-Fi, client/guest isolation off, no symmetric-NAT blocker.**
+  With no TURN relay, guest networks / AP isolation / phone-on-mobile-data /
+  corporate symmetric NAT **silently fail**. Accepted scope: *same
+  non-isolated LAN only*; TURN is explicitly out of scope (no server in this
+  project). Mitigation shipped: a 20 s connection-timeout diagnostic banner
+  in `PairScreen` (`data-testid="connect-timeout"`) telling the user to put
+  both devices on the same Wi-Fi with isolation off. Documented in
+  `docs/SETUP_IOS.md` and the Settings hint.
+- **QR capacity (red-team M5).** The QR encodes the whole URL, not just the
+  payload, and the Pages prefix (custom domain + base path) is much longer
+  than `…:5173/phone`. The old payload-only `oversize` check
+  (`QR_PAYLOAD_THRESHOLD_BYTES`, 1200) no longer models the QR ceiling for
+  the **offer** QR. Added `QR_MAX_URL_BYTES` (1273, Version-25/EC-L) +
+  `fitsSingleQr(url)`; `PairScreen` now checks the assembled URL length and
+  falls back to manual paste when it overflows. The bare-payload **answer**
+  QR keeps the payload threshold.
+- **Offer privacy + reload (red-team M4/M7).** The offer SDP embeds the
+  laptop's private LAN IPs / ICE ufrag+pwd, now in the hash of a public
+  origin. Hashes are not sent to servers, and the Pages bundle ships **no
+  analytics/telemetry** (deps: dexie, framer-motion, jsqr, lucide-react,
+  qrcode, react, zustand) — so there is no `location.href` exfiltration
+  surface. As defence-in-depth the phone calls `history.replaceState` after
+  capturing the offer to drop `offer=` from the URL/history/bfcache, while
+  **keeping `#role=phone`** so a reload re-mounts the companion (not the
+  laptop app). Constraint recorded: the Pages build must never add
+  telemetry that reads `location.href`.
+- **ICE fallback tradeoff (red-team M6).** `peer.ts`'s 1500 ms
+  first-candidate fallback (committed in 2579e78) can cut gathering before a
+  srflx candidate arrives, marginally hurting the cross-subnet case. Left
+  unchanged this phase — it is pre-existing, the accepted scope is same-LAN
+  (host candidates suffice), and changing ICE timing needs real-device
+  testing. Noted as a known tradeoff.
+- **iOS on Pages (red-team M3).** `docs/SETUP_IOS.md`'s mkcert ceremony
+  exists to give iOS a trusted LAN HTTPS cert. On Pages the origin is
+  already trusted HTTPS, so iOS DeviceMotion works **without** mkcert. Doc
+  updated with a top-level fork. Corollary: an HTTPS Pages page cannot
+  `fetch('http://<lan-ip>/…')` (mixed content), so any future LAN signaling
+  endpoint is foreclosed by the Pages decision — WebRTC DataChannel/STUN
+  traffic is exempt from the mixed-content blocker and is unaffected.
+- **DRY (code-reviewer).** `isPhoneRoute` + `parsePhoneFragment` are the
+  single source of truth for phone-route detection and fragment parsing,
+  consumed by both `main.tsx` and `PhoneApp.tsx`. No duplicated parsing.

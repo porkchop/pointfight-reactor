@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  fitsSingleQr,
+  QR_MAX_URL_BYTES,
   QR_PAYLOAD_THRESHOLD_BYTES,
   tryDecodeOffer,
   tryEncodeOffer,
@@ -82,6 +84,36 @@ describe('qr offer encode/decode', () => {
       throw new Error('expected oversize for padded SDP')
     }
     expect(enc.byteLength).toBeGreaterThan(0)
+  })
+})
+
+describe('fitsSingleQr', () => {
+  it('accepts a URL at or under the QR byte ceiling', () => {
+    expect(fitsSingleQr('x'.repeat(QR_MAX_URL_BYTES))).toBe(true)
+    expect(fitsSingleQr('https://www.aaroncaswell.com/pointfight-reactor/#role=phone&offer=PAYLOAD')).toBe(true)
+  })
+
+  it('rejects a URL over the QR byte ceiling', () => {
+    expect(fitsSingleQr('x'.repeat(QR_MAX_URL_BYTES + 1))).toBe(false)
+  })
+
+  it('measures the whole URL, not just the payload — a max-payload offer plus a long prefix overflows', () => {
+    // A payload right at the payload threshold still passes tryEncodeOffer,
+    // but once wrapped in a long origin/base-path prefix the full QR string
+    // can exceed the ceiling. This is the case the payload-only check missed.
+    const longPrefix =
+      'https://' +
+      'a'.repeat(40) +
+      '.example.com/' +
+      'segment/'.repeat(8) +
+      '#role=phone&offer='
+    // The prefix alone eats more than the headroom between the two limits.
+    expect(longPrefix.length).toBeGreaterThan(
+      QR_MAX_URL_BYTES - QR_PAYLOAD_THRESHOLD_BYTES,
+    )
+    const url = longPrefix + 'P'.repeat(QR_PAYLOAD_THRESHOLD_BYTES)
+    expect(url.length).toBeGreaterThan(QR_MAX_URL_BYTES)
+    expect(fitsSingleQr(url)).toBe(false)
   })
 })
 

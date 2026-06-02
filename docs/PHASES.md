@@ -1,9 +1,11 @@
 # Phase Plan
 
 > **Status:** MVP complete. Phases 1–6 (including 2b.1–2b.4 and 6.1–6.3) are
-> shipped and approved. Phase 6.3's `artifacts/phase-approval.json` carries
-> `"project_complete": true`. Phase 7 (Webcam Pose Detection) is deferred
-> post-tournament as a non-goal for the MVP.
+> shipped and approved. Phase 6.3's earlier `phase-approval.json` carried
+> `"project_complete": true`. **Phase 2b.5 (Static-host QR pairing)** is a
+> post-completion fix that makes phone pairing work from the public GitHub
+> Pages deployment, not just a local dev server — see below. Phase 7 (Webcam
+> Pose Detection) remains deferred post-tournament as a non-goal for the MVP.
 
 ## Phase 1: Local MVP Cue Trainer ✅ approved
 Build a React/TypeScript app with fullscreen cue presentation, randomized
@@ -31,7 +33,7 @@ Acceptance criteria:
 - Optional penalty counter: false starts and hesitations add reps to a
   during-rest clear-list.
 
-## Phase 2b: Phone-as-Sensor ✅ shipped  [decomposed into 2b.1–2b.4]
+## Phase 2b: Phone-as-Sensor ✅ shipped  [decomposed into 2b.1–2b.5]
 Companion page on a phone on local network sends a "commit" event on
 accelerometer threshold (sharp forward step / punch impulse).
 
@@ -138,6 +140,51 @@ Acceptance criteria:
   path.
 - Manual real-device QA at `app/verify-phase-2b4.mjs` covers the full
   pair → calibrate → drill → summary flow with `inputSource: 'phone'`.
+
+### Phase 2b.5: Static-host (GitHub Pages) QR pairing ✅ approved
+2b.1–2b.4 assumed the laptop runs a local Vite dev server that serves
+`/phone` to the phone over the LAN. When the app is served from a public
+static host instead (GitHub Pages under a base path, `vite base: './'`),
+the offer QR pointed the phone at `https://<laptopLanIp>/phone` — a server
+that does not exist — so the phone hung on a blank page. This sub-phase
+makes pairing work from any host, including the public deployment, with no
+server-side routing. See `artifacts/decision-memo.md` §"Phase 2b.5 —
+Static-host QR pairing" for the planning record and the resolved
+red-team/code-review findings.
+
+Acceptance criteria:
+- The offer QR encodes the laptop's **current origin + base path** with the
+  phone role + offer in the hash (`<origin><base>#role=phone&offer=<payload>`),
+  not a `/phone` path against the Settings LAN IP. The request always
+  resolves to the served `index.html` — no `404.html`, no SPA fallback, no
+  change to `.github/workflows/pages.yml`.
+- On a **loopback** dev host (`localhost`/`127.0.0.1`/`::1`) the host is
+  swapped for the Settings LAN IP (port preserved); with no LAN IP set the
+  builder returns `null` and the UI falls back to manual paste. On any
+  **deployed** host the origin is used verbatim and the LAN IP is ignored.
+- `main.tsx` selects the phone companion via `isPhoneRoute(location)`,
+  which matches the hash role marker **or** the legacy `/phone` path
+  (backward compatible for hand-typed dev URLs).
+- The phone drops `offer=` from its URL via `history.replaceState` after
+  capturing it (the SDP embeds private LAN IPs), keeping `#role=phone` so a
+  reload re-mounts the companion.
+- The offer QR is sized against the **assembled URL** length
+  (`fitsSingleQr` / `QR_MAX_URL_BYTES`), not the payload alone; an
+  over-long URL falls back to manual paste.
+- `PairScreen` shows a connection-timeout diagnostic
+  (`data-testid="connect-timeout"`) after ~20 s in-flight without connect,
+  explaining the same-Wi-Fi / no-client-isolation / no-TURN requirement.
+  Accepted scope: **same non-isolated LAN only**; TURN is out of scope.
+- `docs/SETUP_IOS.md` gains a top-level fork: Pages users skip mkcert
+  (the public origin is already trusted HTTPS).
+- Pure helpers (`buildPhoneUrl`, `parsePhoneFragment`, `isPhoneRoute`,
+  `fitsSingleQr`) are unit-tested under vitest, including the deployed-host
+  path that prevents the original 404/hang (would fail if reverted).
+- Lint + tsc + vitest + vite build clean. Main-bundle growth budget:
+  +1 KB gzip.
+- Manual real-device QA at `app/verify-phase-2b5.mjs` covers the
+  Pages-served pair → scan → connect flow on a real phone (the WebRTC
+  handshake is the §B2 browser-API manual gate).
 
 ## Phase 3: Visuospatial Cues + Distance Axis ✅ shipped
 Replace text cues with animated silhouettes/symbols and add the distance

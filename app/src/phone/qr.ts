@@ -14,6 +14,24 @@
 
 export const QR_PAYLOAD_THRESHOLD_BYTES = 1200
 
+/**
+ * Hard ceiling for the *final* string a QR encodes. QR Version 25 / EC-L
+ * holds ~1273 bytes in byte mode; we treat that as the limit.
+ *
+ * Phase 2b.5: the offer QR encodes a full URL — payload PLUS the
+ * origin/base/hash prefix — and that prefix grew (a custom domain + a
+ * `/<repo>/` base path is much longer than `…:5173/phone`). So the offer
+ * QR must be sized against the assembled URL, not the payload alone;
+ * `QR_PAYLOAD_THRESHOLD_BYTES` only bounds the bare-payload answer QR the
+ * phone renders. Use `fitsSingleQr` for the offer-URL check.
+ */
+export const QR_MAX_URL_BYTES = 1273
+
+/** True when `qrText` fits in a single Version-25/EC-L byte-mode QR. */
+export function fitsSingleQr(qrText: string): boolean {
+  return qrText.length <= QR_MAX_URL_BYTES
+}
+
 export type EncodeResult =
   | { ok: true; payload: string; byteLength: number }
   | { ok: false; reason: 'oversize'; byteLength: number }

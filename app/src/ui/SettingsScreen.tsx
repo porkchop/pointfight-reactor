@@ -590,9 +590,11 @@ export function SettingsScreen({ onClose, onOpenPair }: SettingsScreenProps) {
           />
         </label>
         <p className="hint">
-          Used to build the phone companion URL
-          (<code>http://&lt;ip&gt;:5173/phone</code>). QR pairing in 2b.2 reads
-          this to render the offer QR.
+          Only needed when running a <strong>local dev server</strong> — the
+          phone can’t reach <code>localhost</code>, so the QR uses this LAN IP
+          instead. When the app is served from a public URL (e.g. GitHub
+          Pages), the QR reuses that origin automatically and this can be left
+          blank. Phone and laptop must share the same Wi-Fi either way.
         </p>
         {onOpenPair && (
           <div className="profile-actions">

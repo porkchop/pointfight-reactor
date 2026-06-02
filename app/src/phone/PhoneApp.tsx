@@ -31,6 +31,14 @@ function deviceMotionEventCtor(): DeviceMotionEventConstructor | null {
   return w.DeviceMotionEvent ?? null
 }
 
+function stripOfferFromUrl(): void {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return
+  const { pathname, search } = window.location
+  // Keep the role marker so a reload re-mounts the phone companion; drop
+  // the offer payload (which embeds the laptop's private LAN topology).
+  window.history.replaceState(null, '', `${pathname}${search}#role=phone`)
+}
+
 function nowMs(): number {
   // Monotonic clock so wall-clock jumps (NTP / DST) cannot make a sample
   // timestamp move backward and trip the debounce permanently. Falls back
@@ -195,6 +203,12 @@ export function PhoneApp() {
 
   useEffect(() => {
     if (!initialOfferPayload) return
+    // The offer SDP carries the laptop's private LAN IP / ICE candidates.
+    // On a public-origin deployment (Phase 2b.5) we don't want it lingering
+    // in the address bar, history, or bfcache — we've already captured it in
+    // state, so drop it from the URL while keeping `#role=phone` so a reload
+    // still mounts the phone companion (not the laptop app).
+    stripOfferFromUrl()
     let cancelled = false
     void (async () => {
       const dec = await tryDecodeOffer(initialOfferPayload)

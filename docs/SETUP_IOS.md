@@ -1,15 +1,29 @@
 # Setting up the phone companion on iOS
 
-PointFight Reactor's phone-as-sensor mode (`/phone`) works without any
-configuration on **Android Chrome over plain HTTP** on your LAN. iOS
-Safari is stricter: it refuses to grant `DeviceMotionEvent` permission
-to any origin that is not served over HTTPS with a certificate the device
-already trusts.
+> **Using the public (GitHub Pages) deployment? Skip this entire page.**
+> When you open the app from its public HTTPS URL (e.g.
+> `https://www.aaroncaswell.com/pointfight-reactor/`), the origin is
+> already served over trusted HTTPS, so iOS grants motion permission with
+> **no mkcert and no certificate setup**. Just open the app, tap **Pair
+> phone**, and scan the QR — the phone loads the same public deployment
+> automatically (Phase 2b.5). The only requirement is that the phone and
+> laptop are on the **same Wi-Fi with client/"guest" isolation turned
+> off**, because the data link is peer-to-peer with no relay server.
+>
+> The mkcert setup below is **only** for running a local Vite **dev
+> server** (`npm run dev`) and pairing an iPhone against it over the LAN.
 
-This page is the one-time setup an iOS user runs on their laptop so that
-`https://<laptop-lan-ip>:5173/phone` works on their iPhone.
+PointFight Reactor's phone-as-sensor mode works without any configuration
+on **Android Chrome over plain HTTP** on your LAN. iOS Safari is stricter:
+it refuses to grant `DeviceMotionEvent` permission to any origin that is
+not served over HTTPS with a certificate the device already trusts.
 
-If you are on Android, **stop reading — you do not need any of this**.
+This page is the one-time setup an iOS user runs on their laptop so that a
+**local dev server** at `https://<laptop-lan-ip>:5173/phone` works on their
+iPhone.
+
+If you are on Android, or you use the public Pages deployment, **stop
+reading — you do not need any of this**.
 
 ## Why
 
