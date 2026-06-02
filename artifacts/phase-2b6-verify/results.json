@@ -1,0 +1,38 @@
+{
+  "phase": "phase-2b.6",
+  "startedAt": "2026-06-02T18:08:39.744Z",
+  "automated": {
+    "C1": {
+      "pass": true,
+      "observed": {
+        "reachedScanning": true,
+        "videoMounted": true,
+        "framesText": "Scanning for the phone’s answer QR… hold the phone steady and fill the frame (1 frame checked). If it won’t catch, use “Show manual pairing” above."
+      }
+    }
+  },
+  "manual_qa_checklist": [
+    {
+      "id": "M1",
+      "description": "Point the phone answer QR at the laptop webcam; within ~5s the laptop decodes it and PairScreen reaches connected.",
+      "signed_off": null
+    },
+    {
+      "id": "M2",
+      "description": "Dense answer QR decodes reliably at arm’s length (higher-resolution capture), not only pressed to the lens.",
+      "signed_off": null
+    },
+    {
+      "id": "M3",
+      "description": "Manual-pairing fallback (paste answer SDP) still completes a connection when the webcam cannot decode.",
+      "signed_off": null
+    }
+  ],
+  "console_errors": [],
+  "finishedAt": "2026-06-02T18:08:41.347Z",
+  "summary": {
+    "gate_checks_pass": true,
+    "manual_qa_required": true,
+    "console_errors": 0
+  }
+}

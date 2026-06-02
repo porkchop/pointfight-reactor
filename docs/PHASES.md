@@ -2,10 +2,11 @@
 
 > **Status:** MVP complete. Phases 1–6 (including 2b.1–2b.4 and 6.1–6.3) are
 > shipped and approved. Phase 6.3's earlier `phase-approval.json` carried
-> `"project_complete": true`. **Phase 2b.5 (Static-host QR pairing)** is a
-> post-completion fix that makes phone pairing work from the public GitHub
-> Pages deployment, not just a local dev server — see below. Phase 7 (Webcam
-> Pose Detection) remains deferred post-tournament as a non-goal for the MVP.
+> `"project_complete": true`. **Phases 2b.5–2b.6** are post-completion fixes
+> that make phone pairing work from the public GitHub Pages deployment: 2b.5
+> routes the QR to the current origin; 2b.6 fixes the laptop webcam
+> answer-scan that never started — see below. Phase 7 (Webcam Pose
+> Detection) remains deferred post-tournament as a non-goal for the MVP.
 
 ## Phase 1: Local MVP Cue Trainer ✅ approved
 Build a React/TypeScript app with fullscreen cue presentation, randomized
@@ -33,7 +34,7 @@ Acceptance criteria:
 - Optional penalty counter: false starts and hesitations add reps to a
   during-rest clear-list.
 
-## Phase 2b: Phone-as-Sensor ✅ shipped  [decomposed into 2b.1–2b.5]
+## Phase 2b: Phone-as-Sensor ✅ shipped  [decomposed into 2b.1–2b.6]
 Companion page on a phone on local network sends a "commit" event on
 accelerometer threshold (sharp forward step / punch impulse).
 
@@ -185,6 +186,29 @@ Acceptance criteria:
 - Manual real-device QA at `app/verify-phase-2b5.mjs` covers the
   Pages-served pair → scan → connect flow on a real phone (the WebRTC
   handshake is the §B2 browser-API manual gate).
+
+### Phase 2b.6: Laptop answer-QR scan actually starts ✅ approved
+Fixes a latent 2b.2 bug surfaced by 2b.5 real-device QA: the laptop's
+"turn on camera" handler read `videoRef.current` while the `<video>` was
+not yet mounted (still in `showing-offer`), so it early-returned before
+starting the scan — the camera turned on but nothing scanned and the
+handshake timed out to `Error`. See `artifacts/decision-memo.md` §"Phase
+2b.6".
+
+Acceptance criteria:
+- Clicking "I scanned the QR — turn on camera" transitions the pair state
+  to `scanning-answer`, mounts the `<video>`, and starts the jsQR loop —
+  the stream attach + loop start moved into a `qrState`-keyed effect so the
+  `<video>` exists before the ref is read.
+- Camera capture requests `1280×720` ideal resolution so the dense answer
+  QR's modules are large enough for jsQR to decode (the webcam default
+  ~640×480 cannot).
+- A live scanning indicator (`data-testid="scan-status"`) shows a
+  frames-checked counter and points to the manual-pairing fallback.
+- `app/verify-phase-2b6.mjs` gates that scanning *starts* using Chromium's
+  fake camera (would fail before the fix). Real webcam decode → `connected`
+  remains a §B2 manual gate (the fake stream is not a decodable QR).
+- Lint + tsc + vitest + vite build clean. Main bundle unchanged.
 
 ## Phase 3: Visuospatial Cues + Distance Axis ✅ shipped
 Replace text cues with animated silhouettes/symbols and add the distance

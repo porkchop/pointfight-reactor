@@ -1485,3 +1485,49 @@ origin is used verbatim and the LAN IP is irrelevant.
 - **DRY (code-reviewer).** `isPhoneRoute` + `parsePhoneFragment` are the
   single source of truth for phone-route detection and fragment parsing,
   consumed by both `main.tsx` and `PhoneApp.tsx`. No duplicated parsing.
+
+---
+
+# Phase 2b.6 — Laptop answer-QR scan actually starts
+
+## Problem (regression discovered during 2b.5 real-device QA)
+
+With 2b.5 the phone finally loads from the public deployment, so the user
+reached step 2 (the laptop's webcam scanning the phone's answer QR) for the
+first time — and it silently did nothing: the camera turned on but no video
+appeared, no scanning happened, and the handshake never completed, so the
+connection timed out to `Error`.
+
+Root cause (a latent 2b.2 bug, never caught because the camera path's manual
+QA was never performed): `handleStartScan` read `videoRef.current` while the
+pair state was still `'showing-offer'`. The `<video>` element only renders
+in the `'scanning-answer'` state (`QrPanel`), so the ref was `null` and the
+handler **early-returned before** `setQrState('scanning-answer')` and
+`scheduleScan()`. The `getUserMedia` stream was acquired (camera LED on) but
+never attached and never scanned.
+
+## Fix
+
+- `handleStartScan` now acquires the stream, stores it in `streamRef`, and
+  sets `'scanning-answer'`. A new effect (keyed on `qrState`) attaches the
+  stream to the `<video>` and starts the jsQR loop **once the element is
+  mounted** — eliminating the null-ref ordering hazard.
+- **Higher capture resolution** (`width/height ideal 1280×720`): the webcam
+  default (~640×480) renders the dense answer QR's modules below one pixel,
+  so jsQR could never decode even when scanning *was* running. This is the
+  decode-reliability half of the fix.
+- **Scanning feedback** (`data-testid="scan-status"`): a live
+  frames-checked counter + a pointer to the manual-pairing fallback, so the
+  operator can tell the camera is actively working (the absence of any
+  feedback was the user's explicit complaint).
+
+## Notes
+
+- The reverse-QR-over-webcam path is inherently finicky (a webcam reading a
+  phone-screen QR). The manual-paste fallback remains the reliable escape
+  hatch and is now called out in the scan-status hint.
+- Real webcam decode → `connected` stays a manual gate (§B2): Chromium's
+  fake camera emits a synthetic pattern, not a decodable QR, so the
+  automated check (`verify-phase-2b6.mjs` C1) gates only that scanning
+  *starts* (state transition + video mount + frame counter advancing) —
+  exactly the regression. It would fail before this fix.

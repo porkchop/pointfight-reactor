@@ -69,6 +69,7 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
     null,
   )
   const [err, setErr] = useState<string | null>(null)
+  const [scanFrames, setScanFrames] = useState(0)
   const [connectTimedOut, setConnectTimedOut] = useState(false)
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [lastCommit, setLastCommit] = useState<{
@@ -290,7 +291,16 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
     }
     let stream: MediaStream
     try {
-      stream = await gum({ video: { facingMode: 'user' } })
+      // Request a higher resolution than the webcam default (often 640×480):
+      // the phone's answer QR is dense (a compressed SDP), and at low res its
+      // modules fall below one pixel so jsQR can never decode it.
+      stream = await gum({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      })
     } catch (e) {
       setMode('manual')
       setAutoFallbackReason(
@@ -300,14 +310,28 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
       )
       return
     }
+    // Mount the <video> first: it only renders in the 'scanning-answer'
+    // state, so reading videoRef here (still 'showing-offer') would be null
+    // and silently no-op. The effect below attaches the stream and starts the
+    // jsQR loop once the element is in the DOM.
     streamRef.current = stream
-    const video = videoRef.current
-    if (!video) return
-    video.srcObject = stream
-    await video.play().catch(() => {})
+    setScanFrames(0)
     setQrState('scanning-answer')
-    scheduleScan()
   }
+
+  // Attach the camera stream + start the jsQR loop once the <video> mounts.
+  useEffect(() => {
+    if (qrState !== 'scanning-answer') return
+    const video = videoRef.current
+    const stream = streamRef.current
+    if (!video || !stream) return
+    video.srcObject = stream
+    void video.play().catch(() => {})
+    scheduleScan()
+    // scheduleScan reads refs only; re-running on its identity would restart
+    // the loop needlessly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrState])
 
   function scheduleScan(): void {
     if (scanRafRef.current !== null) return
@@ -342,6 +366,9 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
         void handleDecodedAnswer(result.data)
         return
       }
+      // Surface proof-of-life so the operator knows the camera is actively
+      // scanning (vs. the page being stuck) even before a QR is decoded.
+      setScanFrames((n) => n + 1)
       scanRafRef.current = requestAnimationFrame(tick)
     }
     scanRafRef.current = requestAnimationFrame(tick)
@@ -429,6 +456,7 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
         <QrPanel
           qrState={qrState}
           phoneUrl={phoneUrl}
+          scanFrames={scanFrames}
           qrCanvasRef={qrCanvasRef}
           videoRef={videoRef}
           canvasRef={canvasRef}
@@ -504,6 +532,7 @@ export function PairScreen({ onClose, getUserMedia }: PairScreenProps) {
 function QrPanel({
   qrState,
   phoneUrl,
+  scanFrames,
   qrCanvasRef,
   videoRef,
   canvasRef,
@@ -511,6 +540,7 @@ function QrPanel({
 }: {
   qrState: PairQrState
   phoneUrl: string | null
+  scanFrames: number
   qrCanvasRef: React.RefObject<HTMLCanvasElement | null>
   videoRef: React.RefObject<HTMLVideoElement | null>
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -550,6 +580,14 @@ function QrPanel({
               data-testid="answer-canvas"
               style={{ display: 'none' }}
             />
+            {qrState === 'scanning-answer' && (
+              <p className="hint" data-testid="scan-status" role="status">
+                Scanning for the phone’s answer QR… hold the phone steady and
+                fill the frame ({scanFrames} frame
+                {scanFrames === 1 ? '' : 's'} checked). If it won’t catch, use
+                “Show manual pairing” above.
+              </p>
+            )}
           </>
         ) : (
           <button

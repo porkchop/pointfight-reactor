@@ -1,11 +1,10 @@
 {
   "update": "phase-plan-expansion",
-  "added_phase": "phase-2b.5",
-  "title": "Static-host (GitHub Pages) QR pairing",
-  "reason": "Discovered work (per QUALITY_GATES.md §'Major but self-resolvable discovered work'): phone pairing built in 2b.1–2b.4 assumed the laptop runs a local Vite dev server that serves /phone over the LAN. When the app is served from the public GitHub Pages deployment (under a base path, vite base: './'), the offer QR pointed the phone at https://<laptopLanIp>/phone — a non-existent server — so the phone hung on a blank page. The user reported this and authorized fixing it as its own phase.",
-  "numbering": "Appended as 2b.5 under the existing Phase 2b phone-as-sensor decomposition. No already-approved phase was renumbered (PHASES.md operating rule preserved).",
-  "supersedes": "Relaxes the implicit 2b.1 assumption that the phone loads /phone from the laptop dev server. The legacy /phone path remains supported for local dev (backward compatible); the QR now emits a host-agnostic hash-role URL on the laptop's current origin.",
-  "planning_gate": "Triggered (cross-layer: routing + URL construction + UI; public-internet exposure). decision-memo.md §'Phase 2b.5 — Static-host QR pairing' written; architecture-red-team + code-reviewer invoked and findings resolved.",
-  "scope_note": "WebRTC DataChannel remains peer-to-peer with STUN only (no TURN). Accepted connectivity scope: same non-isolated LAN. Cross-network / guest-isolated / symmetric-NAT pairing is explicitly out of scope and surfaced via a connection-timeout diagnostic.",
-  "project_complete_status": "The prior phase-6.3 project_complete:true signal stands for the MVP feature set; this is a post-completion deployment fix, not a new MVP feature."
+  "added_phase": "phase-2b.6",
+  "title": "Laptop answer-QR scan actually starts",
+  "reason": "Discovered during 2b.5 real-device QA: with the phone finally loading from the public deployment, the user reached step 2 (laptop webcam scanning the phone's answer QR) for the first time and it silently did nothing — the camera turned on but no scanning started, so the handshake timed out to Error. Root cause is a latent 2b.2 bug: handleStartScan read videoRef.current while the <video> was unmounted (still 'showing-offer'), early-returning before setting 'scanning-answer'/starting the jsQR loop.",
+  "predecessor": "phase-2b.5 (static-host QR pairing) — committed in 76eba81; this is the immediate follow-on that makes the now-reachable step 2 functional.",
+  "numbering": "Appended as 2b.6 under the Phase 2b phone-as-sensor decomposition. No already-approved phase renumbered.",
+  "planning_gate": "Not separately re-invoked — this is a localized bug fix within the pairing UI surface already analysed in the 2b.5 planning round. Recorded in decision-memo.md §'Phase 2b.6'.",
+  "scope_note": "Fix = start scanning correctly (qrState-keyed effect) + higher capture resolution (1280x720) for dense-QR decode + live scan feedback. Real webcam decode→connected remains a §B2 manual gate; the reverse-QR path is inherently finicky and the manual-paste fallback remains the reliable escape hatch."
 }
