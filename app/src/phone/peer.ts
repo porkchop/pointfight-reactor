@@ -43,6 +43,13 @@ const DEFAULT_STUN: RTCIceServer = {
 }
 const DEFAULT_LABEL = 'pointfight-phone'
 
+// Some Chromium builds gather host+srflx candidates within tens of ms and
+// then never transition `iceGatheringState` to 'complete' nor fire the null
+// end-of-candidates marker — leaving `createOffer` hung indefinitely. Once
+// any candidate has arrived we have enough to dial on the LAN, so fall back
+// to whatever has been gathered after this grace window.
+const WAIT_FOR_FIRST_CANDIDATE_FALLBACK_MS = 1500
+
 export function createPeer(opts: CreatePeerOptions = {}): PeerHandle {
   const factory: PeerConnectionFactory =
     opts.peerConnectionFactory ??
@@ -95,13 +102,28 @@ export function createPeer(opts: CreatePeerOptions = {}): PeerHandle {
   async function waitForIceComplete(): Promise<void> {
     if (pc.iceGatheringState === 'complete') return
     await new Promise<void>((resolve) => {
-      const handler = () => {
-        if (pc.iceGatheringState === 'complete') {
-          pc.onicegatheringstatechange = null
-          resolve()
+      let settled = false
+      let fallbackTimer: ReturnType<typeof setTimeout> | null = null
+      const finish = () => {
+        if (settled) return
+        settled = true
+        pc.onicegatheringstatechange = null
+        pc.onicecandidate = null
+        if (fallbackTimer !== null) clearTimeout(fallbackTimer)
+        resolve()
+      }
+      pc.onicegatheringstatechange = () => {
+        if (pc.iceGatheringState === 'complete') finish()
+      }
+      pc.onicecandidate = (ev: RTCPeerConnectionIceEvent) => {
+        if (ev.candidate === null) {
+          finish()
+          return
+        }
+        if (fallbackTimer === null) {
+          fallbackTimer = setTimeout(finish, WAIT_FOR_FIRST_CANDIDATE_FALLBACK_MS)
         }
       }
-      pc.onicegatheringstatechange = handler
     })
   }
 

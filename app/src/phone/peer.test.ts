@@ -36,6 +36,7 @@ class FakePeerConnection {
   iceGatheringState: 'new' | 'gathering' | 'complete' = 'new'
   connectionState: 'new' | 'connecting' | 'connected' | 'failed' | 'closed' = 'new'
   onicegatheringstatechange: (() => void) | null = null
+  onicecandidate: ((ev: { candidate: RTCIceCandidate | null }) => void) | null = null
   onconnectionstatechange: (() => void) | null = null
   ondatachannel: ((ev: { channel: FakeDataChannel }) => void) | null = null
   localDescription: { sdp: string; type: 'offer' | 'answer' } | null = null
@@ -78,6 +79,13 @@ class FakePeerConnection {
   finishIceGathering(): void {
     this.iceGatheringState = 'complete'
     this.onicegatheringstatechange?.()
+  }
+  emitCandidate(): void {
+    this.iceGatheringState = 'gathering'
+    this.onicecandidate?.({ candidate: {} as RTCIceCandidate })
+  }
+  emitEndOfCandidates(): void {
+    this.onicecandidate?.({ candidate: null })
   }
   setConnectionState(s: FakePeerConnection['connectionState']): void {
     this.connectionState = s
@@ -197,6 +205,64 @@ describe('createPeer — offerer (laptop) flow', () => {
     peer.close()
     expect(peer.state).toBe<PeerState>('closed')
     expect(lastFake!.connectionState).toBe('closed')
+  })
+})
+
+describe('createPeer — ICE gathering fallbacks', () => {
+  // `createOffer` awaits `pc.createOffer` + `pc.setLocalDescription` before
+  // `waitForIceComplete` runs and installs its handlers. Tests must drain
+  // those microtasks before emitting candidates through the stub.
+  async function flushMicrotasks(): Promise<void> {
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+  }
+
+  it('resolves createOffer when onicecandidate fires with a null end-of-candidates marker', async () => {
+    const peer = createPeer({ peerConnectionFactory: fakeFactory })
+    const offerPromise = peer.createOffer()
+    await flushMicrotasks()
+    // Some browsers signal end-of-candidates via a null candidate event
+    // without ever transitioning iceGatheringState to 'complete'.
+    lastFake!.emitEndOfCandidates()
+    const sdp = await offerPromise
+    expect(sdp).toContain('v=0')
+    expect(peer.state).toBe<PeerState>('awaiting_answer')
+  })
+
+  it('resolves createOffer after the trickle fallback timeout once any candidate has been gathered', async () => {
+    vi.useFakeTimers()
+    const peer = createPeer({ peerConnectionFactory: fakeFactory })
+    const offerPromise = peer.createOffer()
+    await flushMicrotasks()
+    // Buggy Chromium path: candidate arrives, then gathering hangs forever.
+    lastFake!.emitCandidate()
+    // Drain the fallback timer; the offer should then resolve with the
+    // partial set of candidates rather than wait indefinitely.
+    await vi.advanceTimersByTimeAsync(1500)
+    const sdp = await offerPromise
+    expect(sdp).toContain('v=0')
+    expect(peer.state).toBe<PeerState>('awaiting_answer')
+  })
+
+  it('does not start the fallback timer before any candidate has been gathered', async () => {
+    vi.useFakeTimers()
+    const peer = createPeer({ peerConnectionFactory: fakeFactory })
+    const offerPromise = peer.createOffer()
+    await flushMicrotasks()
+    // Advance well past the fallback window with no candidates — gathering
+    // should still be in flight, since the fallback is only armed once we
+    // have at least one candidate to dial with.
+    await vi.advanceTimersByTimeAsync(5000)
+    let resolved = false
+    void offerPromise.then(() => {
+      resolved = true
+    })
+    await flushMicrotasks()
+    expect(resolved).toBe(false)
+    expect(peer.state).toBe<PeerState>('gathering_offer')
+    // Recovery: a real 'complete' transition still works.
+    lastFake!.finishIceGathering()
+    await offerPromise
+    expect(peer.state).toBe<PeerState>('awaiting_answer')
   })
 })
 
